@@ -369,7 +369,6 @@
             }
         }
 
-        // Eğer efsanevi (200+) seviyesindeyse bar direkt full olsun
         let percent = 100;
         if (currentScore < 200) {
             let span = currentRank.limit - prevLimit;
@@ -379,7 +378,6 @@
 
         document.getElementById("current-rank-icon").innerText = currentRank.icon;
         
-        // Sonraki rank ikonunu bul
         let nextIcon = "👑";
         for (let i = 0; i < ranks.length; i++) {
             if (ranks[i].limit > currentScore) {
@@ -443,6 +441,9 @@
     document.getElementById("logout-btn").addEventListener("click", () => {
         document.getElementById("menu-screen").style.display = "none";
         document.getElementById("nick-screen").style.display = "flex";
+        document.getElementById("leaderboard").style.display = "none";
+        document.getElementById("progress-panel").style.display = "none";
+        document.getElementById("sidebar-shop-btn").style.display = "none";
         document.getElementById("nick-input").value = "";
         document.getElementById("pass-input").value = "";
         document.getElementById("error-msg").innerText = "";
@@ -758,7 +759,7 @@
 
                 if (p.x + this.w < bird.x && !p.passed) {
                     score++;
-                    updateProgressBar(score); // Her skor alındığında barı güncelle
+                    updateProgressBar(score);
                     p.passed = true;
                 }
 
@@ -869,7 +870,7 @@
         score = 0;
         scoreSaved = false;
         pipeTimer = 0;
-        updateProgressBar(0); // Oyuna yeniden başlarken barı sıfırla
+        updateProgressBar(0);
         gameState = "PLAY";
         bird.flap();
     }
