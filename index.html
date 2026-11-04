@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Balanced Power-ups & Ranked</title>
+    <title>Flappy Bird - Rare Space Power-ups & Ranked</title>
     <style>
         * {
             box-sizing: border-box;
@@ -90,7 +90,7 @@
             gap: 6px;
         }
         .lb-icon {
-            font-size: 9px; /* Tablodaki simgeler de kompakt ve şık hale getirildi */
+            font-size: 9px;
             letter-spacing: -1px;
             line-height: 1;
             padding-left: 15px;
@@ -306,7 +306,7 @@
     // Oyun İçi Durumlar ve Can/Güçlendirmeler
     let playerLives = 1;         // Başlangıçta 1 Can
     let doubleScoreTimer = 0;    // ⚡ 2X Çarpanı (20 saniye)
-    let hitCooldown = 0;         // Üst üste hasar almayı engellemek için mini koruma süresi
+    let hitCooldown = 0;         
 
     const skins = [
         { id: "default", name: "Mor Kuş", price: 0, color: "#e056fd" },
@@ -562,7 +562,10 @@
     let elapsedTime = 0;
     let pipeTimer = 0;
     let nextSakayikCount = Math.floor(Math.random() * 4) + 3;
-    let nextPowerUpCount = Math.floor(Math.random() * 4) + 4; 
+    let freePowerUpTimer = 0; // Borulardan bağımsız, arkadaki boşluklarda çok nadir beliren güçlendiriciler için sayaç
+
+    // Serbest boşluk güçlendiricileri listesi (Borulara bağlı değil, arkadaki boş alanlarda gezer)
+    let floatingPowerUps = [];
 
     const bird = {
         x: 70,
@@ -604,7 +607,7 @@
 
             ctx.save();
             ctx.translate(this.x + this.w / 2, this.y + this.h / 2);
-            ctx.strokeStyle = hitCooldown > 0 ? "#ff4757" : "#f3a683"; // Hasar aldığında kısa süre kırmızı yanar
+            ctx.strokeStyle = hitCooldown > 0 ? "#ff4757" : "#f3a683";
             ctx.lineWidth = 2.5;
             ctx.beginPath();
             ctx.arc(0, 0, this.w / 2, 0, Math.PI * 2);
@@ -643,10 +646,10 @@
     };
 
     function handleDamage() {
-        if (hitCooldown > 0) return; // Koruma süresindeyken hasar alınmaz
+        if (hitCooldown > 0) return;
 
         playerLives--;
-        hitCooldown = 1.0; // 1 saniye koruma
+        hitCooldown = 1.0; 
 
         if (playerLives <= 0) {
             gameOver();
@@ -661,6 +664,7 @@
         spawnInterval: 1.15, 
 
         draw() {
+            // Boruları ve aralarındaki şakayıkları çiz
             for (let i = 0; i < this.position.length; i++) {
                 let p = this.position[i];
                 let topY = p.y;
@@ -689,7 +693,7 @@
 
                 ctx.shadowBlur = 0;
 
-                // Şakayık Çizimi (Tam Ortada)
+                // Şakayık Çizimi
                 if (p.hasSakayik && !p.sakayikCollected) {
                     let sakayikX = p.x + (this.w / 2) - 18;
                     let sakayikY = p.y + (this.gap / 2) - 18;
@@ -707,29 +711,27 @@
                     }
                     ctx.restore();
                 }
+            }
 
-                // Power-up Çizimi (⚡ 2X veya ❤️ Kalp) -> Borunun Yatayında, Tam Ortada Değil (Üstte veya Altta)
-                if (p.powerUpType && !p.powerUpCollected) {
-                    let puX = p.x + (this.w / 2) - 16;
-                    let puY = p.powerUpYPos; // Boru aralığının üstüne veya altına konumlandırıldı
+            // Borulardan bağımsız, arka plandaki boşluklarda serbestçe süzülen nadir güçlendiricileri çiz
+            for (let i = 0; i < floatingPowerUps.length; i++) {
+                let fpu = floatingPowerUps[i];
+                ctx.save();
+                ctx.shadowColor = fpu.type === '2X' ? "#f1c40f" : "#ff4757";
+                ctx.shadowBlur = 15;
+                ctx.fillStyle = fpu.type === '2X' ? "#f1c40f" : "#ff4757";
+                ctx.beginPath();
+                ctx.arc(fpu.x + 16, fpu.y + 16, 18, 0, Math.PI * 2);
+                ctx.fill();
 
-                    ctx.save();
-                    ctx.shadowColor = p.powerUpType === '2X' ? "#f1c40f" : "#ff4757";
-                    ctx.shadowBlur = 15;
-                    ctx.fillStyle = p.powerUpType === '2X' ? "#f1c40f" : "#ff4757";
-                    ctx.beginPath();
-                    ctx.arc(puX + 16, puY + 16, 18, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    ctx.fillStyle = "#0b0410";
-                    ctx.font = "bold 13px 'Segoe UI', Arial";
-                    ctx.textAlign = "center";
-                    ctx.textBaseline = "middle";
-                    
-                    let symbol = p.powerUpType === '2X' ? "⚡" : "❤️";
-                    ctx.fillText(symbol, puX + 16, puY + 17);
-                    ctx.restore();
-                }
+                ctx.fillStyle = "#0b0410";
+                ctx.font = "bold 13px 'Segoe UI', Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                
+                let symbol = fpu.type === '2X' ? "⚡" : "❤️";
+                ctx.fillText(symbol, fpu.x + 16, fpu.y + 17);
+                ctx.restore();
             }
         },
 
@@ -739,48 +741,72 @@
             if (doubleScoreTimer > 0) doubleScoreTimer -= dt;
             if (hitCooldown > 0) hitCooldown -= dt;
 
+            // Çok Nadir Serbest Güçlendirici Üretme Mantığı (Borulardan bağımsız, arka boşluklarda)
+            freePowerUpTimer += dt;
+            if (freePowerUpTimer > 12.0) { // Yaklaşık her 12 saniyede bir nadir şans denemesi
+                freePowerUpTimer = 0;
+                // %40 ihtimalle arkadaki boşluklara bırakılır (çok nadir olması için)
+                if (Math.random() < 0.40) {
+                    let puType = Math.random() < 0.5 ? '2X' : 'HEART';
+                    floatingPowerUps.push({
+                        x: canvas.width,
+                        y: Math.floor(Math.random() * (canvas.height - 220)) + 70, // Ekranın güvenli boşluk yüksekliklerinde
+                        type: puType,
+                        collected: false
+                    });
+                }
+            }
+
+            // Serbest güçlendiricileri sola kaydır ve çarpışma kontrolü yap
+            let birdRight = bird.x + bird.w;
+            let birdBottom = bird.y + bird.h;
+
+            for (let i = 0; i < floatingPowerUps.length; i++) {
+                let fpu = floatingPowerUps[i];
+                fpu.x -= this.dx * factor;
+
+                // Kuşla temas kontrolü
+                if (!fpu.collected) {
+                    if (
+                        bird.x < fpu.x + 32 &&
+                        birdRight > fpu.x &&
+                        bird.y < fpu.y + 32 &&
+                        birdBottom > fpu.y
+                    ) {
+                        fpu.collected = true;
+                        if (fpu.type === '2X') {
+                            doubleScoreTimer = 20; 
+                        } else if (fpu.type === 'HEART') {
+                            if (playerLives < 3) playerLives++; 
+                        }
+                    }
+                }
+
+                // Ekrandan çıkanları temizle
+                if (fpu.x + 32 < 0) {
+                    floatingPowerUps.splice(i, 1);
+                    i--;
+                }
+            }
+
             pipeTimer += dt;
             if (pipeTimer > this.spawnInterval) {
                 nextSakayikCount--;
-                nextPowerUpCount--;
 
                 let spawnSakayik = false;
-                let powerUpType = null;
-                let powerUpYPos = 0;
-
                 if (nextSakayikCount <= 0) {
                     spawnSakayik = true;
                     nextSakayikCount = Math.floor(Math.random() * 4) + 3;
                 }
 
-                if (nextPowerUpCount <= 0) {
-                    powerUpType = Math.random() < 0.5 ? '2X' : 'HEART';
-                    nextPowerUpCount = Math.floor(Math.random() * 3) + 4;
-                }
-
                 let pipeY = Math.floor(Math.random() * (canvas.height - 280 - this.gap)) + 50;
-
-                // Güçlendiriciyi boru aralığının tam merkezine değil, biraz altına veya üstüne koy (alması zor olsun)
-                if (powerUpType) {
-                    let placeOnTop = Math.random() < 0.5;
-                    if (placeOnTop) {
-                        // Üst borunun hemen alt kenarına yakın
-                        powerUpYPos = pipeY - 45;
-                    } else {
-                        // Alt borunun hemen üst kenarına yakın
-                        powerUpYPos = pipeY + this.gap + 15;
-                    }
-                }
 
                 this.position.push({
                     x: canvas.width,
                     y: pipeY,
                     passed: false,
                     hasSakayik: spawnSakayik,
-                    sakayikCollected: false,
-                    powerUpType: powerUpType,
-                    powerUpYPos: powerUpYPos,
-                    powerUpCollected: false
+                    sakayikCollected: false
                 });
                 pipeTimer = 0;
             }
@@ -789,8 +815,6 @@
                 let p = this.position[i];
                 p.x -= this.dx * factor;
 
-                let birdRight = bird.x + bird.w;
-                let birdBottom = bird.y + bird.h;
                 let pipeRight = p.x + this.w;
                 let pipeBottomGap = p.y + this.gap;
 
@@ -819,26 +843,6 @@
                     }
                 }
 
-                // Power-up Toplama Kontrolü (Alt/Üst zor konumlar)
-                if (p.powerUpType && !p.powerUpCollected) {
-                    let puX = p.x + (this.w / 2) - 16;
-                    let puY = p.powerUpYPos;
-
-                    if (
-                        bird.x < puX + 32 &&
-                        birdRight > puX &&
-                        bird.y < puY + 32 &&
-                        birdBottom > puY
-                    ) {
-                        p.powerUpCollected = true;
-                        if (p.powerUpType === '2X') {
-                            doubleScoreTimer = 20; 
-                        } else if (p.powerUpType === 'HEART') {
-                            if (playerLives < 3) playerLives++; 
-                        }
-                    }
-                }
-
                 if (p.x + this.w < bird.x && !p.passed) {
                     let pointsToAdd = doubleScoreTimer > 0 ? 2 : 1;
                     score += pointsToAdd;
@@ -855,9 +859,10 @@
 
         reset() {
             this.position = [];
+            floatingPowerUps = [];
             pipeTimer = 0;
+            freePowerUpTimer = 0;
             nextSakayikCount = Math.floor(Math.random() * 4) + 3;
-            nextPowerUpCount = Math.floor(Math.random() * 4) + 4;
             doubleScoreTimer = 0;
             playerLives = 1; 
             hitCooldown = 0;
@@ -894,7 +899,6 @@
                 ctx.fillStyle = grad;
                 ctx.fillRect(barX + 2, barY + 2, fillW, barH - 4);
 
-                // Boyutu küçültülmüş ve optimize edilmiş ilerleme barı ikonları
                 ctx.font = "10px 'Segoe UI', Arial";
                 ctx.fillStyle = "#FFF";
                 ctx.textAlign = "right";
