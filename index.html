@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Ghost, ⚡ & ❤️ Health System</title>
+    <title>Flappy Bird - Balanced Power-ups & Ranked</title>
     <style>
         * {
             box-sizing: border-box;
@@ -90,7 +90,7 @@
             gap: 6px;
         }
         .lb-icon {
-            font-size: 11px;
+            font-size: 9px; /* Tablodaki simgeler de kompakt ve şık hale getirildi */
             letter-spacing: -1px;
             line-height: 1;
             padding-left: 15px;
@@ -305,7 +305,6 @@
 
     // Oyun İçi Durumlar ve Can/Güçlendirmeler
     let playerLives = 1;         // Başlangıçta 1 Can
-    let ghostTimer = 0;          // Hayalet / Görünmezlik (20 saniye)
     let doubleScoreTimer = 0;    // ⚡ 2X Çarpanı (20 saniye)
     let hitCooldown = 0;         // Üst üste hasar almayı engellemek için mini koruma süresi
 
@@ -584,10 +583,8 @@
 
             ctx.save();
             ctx.shadowColor = activeSkinObj.color;
-            ctx.shadowBlur = ghostTimer > 0 ? 20 : 14;
-            // Hayalet modundayken kuş yarı saydam ve mavimsi/turkuaz görünür
-            ctx.globalAlpha = ghostTimer > 0 ? 0.6 : 1.0;
-            ctx.fillStyle = ghostTimer > 0 ? "#00ffff" : activeSkinObj.color;
+            ctx.shadowBlur = 14;
+            ctx.fillStyle = activeSkinObj.color;
             ctx.beginPath();
             ctx.arc(0, 0, this.w / 2 + 1, 0, Math.PI * 2);
             ctx.fill();
@@ -607,8 +604,8 @@
 
             ctx.save();
             ctx.translate(this.x + this.w / 2, this.y + this.h / 2);
-            ctx.strokeStyle = ghostTimer > 0 ? "#00ffff" : "#f3a683";
-            ctx.lineWidth = ghostTimer > 0 ? 3.5 : 2.5;
+            ctx.strokeStyle = hitCooldown > 0 ? "#ff4757" : "#f3a683"; // Hasar aldığında kısa süre kırmızı yanar
+            ctx.lineWidth = 2.5;
             ctx.beginPath();
             ctx.arc(0, 0, this.w / 2, 0, Math.PI * 2);
             ctx.stroke();
@@ -646,11 +643,10 @@
     };
 
     function handleDamage() {
-        if (ghostTimer > 0) return; // Hayalet (görünmezlik) modundayken hasar alınmaz
-        if (hitCooldown > 0) return; // Üst üste anında ölmesin diye kısa süre koruma
+        if (hitCooldown > 0) return; // Koruma süresindeyken hasar alınmaz
 
         playerLives--;
-        hitCooldown = 1.0; // 1 saniye hasar almama koruması
+        hitCooldown = 1.0; // 1 saniye koruma
 
         if (playerLives <= 0) {
             gameOver();
@@ -670,23 +666,16 @@
                 let topY = p.y;
                 let bottomY = p.y + this.gap;
 
-                // Hayalet aktifken borular (duvarlar) soluk renkli görünür
                 let pipeGradient = ctx.createLinearGradient(p.x, 0, p.x + this.w, 0);
-                if (ghostTimer > 0) {
-                    pipeGradient.addColorStop(0, 'rgba(45, 10, 78, 0.3)');
-                    pipeGradient.addColorStop(0.5, 'rgba(72, 19, 128, 0.3)');
-                    pipeGradient.addColorStop(1, 'rgba(26, 5, 46, 0.3)');
-                } else {
-                    pipeGradient.addColorStop(0, '#2d0a4e');
-                    pipeGradient.addColorStop(0.5, '#481380');
-                    pipeGradient.addColorStop(1, '#1a052e');
-                }
+                pipeGradient.addColorStop(0, '#2d0a4e');
+                pipeGradient.addColorStop(0.5, '#481380');
+                pipeGradient.addColorStop(1, '#1a052e');
 
                 ctx.fillStyle = pipeGradient;
-                ctx.strokeStyle = ghostTimer > 0 ? "rgba(162, 155, 254, 0.25)" : "#a29bfe";
+                ctx.strokeStyle = "#a29bfe";
                 ctx.lineWidth = 2;
-                ctx.shadowColor = ghostTimer > 0 ? "transparent" : "#6c5ce7";
-                ctx.shadowBlur = ghostTimer > 0 ? 0 : 8;
+                ctx.shadowColor = "#6c5ce7";
+                ctx.shadowBlur = 8;
 
                 ctx.fillRect(p.x, 0, this.w, topY);
                 ctx.strokeRect(p.x, 0, this.w, topY);
@@ -700,7 +689,7 @@
 
                 ctx.shadowBlur = 0;
 
-                // Şakayık Çizimi
+                // Şakayık Çizimi (Tam Ortada)
                 if (p.hasSakayik && !p.sakayikCollected) {
                     let sakayikX = p.x + (this.w / 2) - 18;
                     let sakayikY = p.y + (this.gap / 2) - 18;
@@ -719,16 +708,15 @@
                     ctx.restore();
                 }
 
-                // Power-up Çizimi (⚡ 2X, 👻 Hayalet veya ❤️ Kalp)
+                // Power-up Çizimi (⚡ 2X veya ❤️ Kalp) -> Borunun Yatayında, Tam Ortada Değil (Üstte veya Altta)
                 if (p.powerUpType && !p.powerUpCollected) {
                     let puX = p.x + (this.w / 2) - 16;
-                    let puY = p.y + (this.gap / 2) - 16;
-                    if (p.hasSakayik && !p.sakayikCollected) puY -= 30;
+                    let puY = p.powerUpYPos; // Boru aralığının üstüne veya altına konumlandırıldı
 
                     ctx.save();
-                    ctx.shadowColor = p.powerUpType === '2X' ? "#f1c40f" : (p.powerUpType === 'GHOST' ? "#00ffff" : "#ff4757");
+                    ctx.shadowColor = p.powerUpType === '2X' ? "#f1c40f" : "#ff4757";
                     ctx.shadowBlur = 15;
-                    ctx.fillStyle = p.powerUpType === '2X' ? "#f1c40f" : (p.powerUpType === 'GHOST' ? "#00ffff" : "#ff4757");
+                    ctx.fillStyle = p.powerUpType === '2X' ? "#f1c40f" : "#ff4757";
                     ctx.beginPath();
                     ctx.arc(puX + 16, puY + 16, 18, 0, Math.PI * 2);
                     ctx.fill();
@@ -738,10 +726,7 @@
                     ctx.textAlign = "center";
                     ctx.textBaseline = "middle";
                     
-                    let symbol = "⚡";
-                    if (p.powerUpType === 'GHOST') symbol = "👻";
-                    if (p.powerUpType === 'HEART') symbol = "❤️";
-
+                    let symbol = p.powerUpType === '2X' ? "⚡" : "❤️";
                     ctx.fillText(symbol, puX + 16, puY + 17);
                     ctx.restore();
                 }
@@ -751,8 +736,6 @@
         update(factor, dt) {
             if (gameState !== "PLAY") return;
 
-            // Süreleri ve korumaları azalt
-            if (ghostTimer > 0) ghostTimer -= dt;
             if (doubleScoreTimer > 0) doubleScoreTimer -= dt;
             if (hitCooldown > 0) hitCooldown -= dt;
 
@@ -763,6 +746,7 @@
 
                 let spawnSakayik = false;
                 let powerUpType = null;
+                let powerUpYPos = 0;
 
                 if (nextSakayikCount <= 0) {
                     spawnSakayik = true;
@@ -770,21 +754,32 @@
                 }
 
                 if (nextPowerUpCount <= 0) {
-                    let rand = Math.random();
-                    if (rand < 0.35) powerUpType = '2X';
-                    else if (rand < 0.70) powerUpType = 'GHOST';
-                    else powerUpType = 'HEART'; // Kalp (Can)
-                    
+                    powerUpType = Math.random() < 0.5 ? '2X' : 'HEART';
                     nextPowerUpCount = Math.floor(Math.random() * 3) + 4;
+                }
+
+                let pipeY = Math.floor(Math.random() * (canvas.height - 280 - this.gap)) + 50;
+
+                // Güçlendiriciyi boru aralığının tam merkezine değil, biraz altına veya üstüne koy (alması zor olsun)
+                if (powerUpType) {
+                    let placeOnTop = Math.random() < 0.5;
+                    if (placeOnTop) {
+                        // Üst borunun hemen alt kenarına yakın
+                        powerUpYPos = pipeY - 45;
+                    } else {
+                        // Alt borunun hemen üst kenarına yakın
+                        powerUpYPos = pipeY + this.gap + 15;
+                    }
                 }
 
                 this.position.push({
                     x: canvas.width,
-                    y: Math.floor(Math.random() * (canvas.height - 280 - this.gap)) + 50,
+                    y: pipeY,
                     passed: false,
                     hasSakayik: spawnSakayik,
                     sakayikCollected: false,
                     powerUpType: powerUpType,
+                    powerUpYPos: powerUpYPos,
                     powerUpCollected: false
                 });
                 pipeTimer = 0;
@@ -824,11 +819,10 @@
                     }
                 }
 
-                // Power-up Toplama Kontrolü
+                // Power-up Toplama Kontrolü (Alt/Üst zor konumlar)
                 if (p.powerUpType && !p.powerUpCollected) {
                     let puX = p.x + (this.w / 2) - 16;
-                    let puY = p.y + (this.gap / 2) - 16;
-                    if (p.hasSakayik && !p.sakayikCollected) puY -= 30;
+                    let puY = p.powerUpYPos;
 
                     if (
                         bird.x < puX + 32 &&
@@ -838,11 +832,9 @@
                     ) {
                         p.powerUpCollected = true;
                         if (p.powerUpType === '2X') {
-                            doubleScoreTimer = 20; // 20 saniye 2x çarpanı
-                        } else if (p.powerUpType === 'GHOST') {
-                            ghostTimer = 20; // 20 saniye görünmezlik (hayalet)
+                            doubleScoreTimer = 20; 
                         } else if (p.powerUpType === 'HEART') {
-                            if (playerLives < 3) playerLives++; // Canı 1 artır (Max 3)
+                            if (playerLives < 3) playerLives++; 
                         }
                     }
                 }
@@ -866,9 +858,8 @@
             pipeTimer = 0;
             nextSakayikCount = Math.floor(Math.random() * 4) + 3;
             nextPowerUpCount = Math.floor(Math.random() * 4) + 4;
-            ghostTimer = 0;
             doubleScoreTimer = 0;
-            playerLives = 1; // Her oyuna 1 canla başlanır
+            playerLives = 1; 
             hitCooldown = 0;
         }
     };
@@ -903,13 +894,14 @@
                 ctx.fillStyle = grad;
                 ctx.fillRect(barX + 2, barY + 2, fillW, barH - 4);
 
-                ctx.font = "12px 'Segoe UI', Arial";
+                // Boyutu küçültülmüş ve optimize edilmiş ilerleme barı ikonları
+                ctx.font = "10px 'Segoe UI', Arial";
                 ctx.fillStyle = "#FFF";
                 ctx.textAlign = "right";
-                ctx.fillText(currentRankIcon, barX - 6, barY + 13);
+                ctx.fillText(currentRankIcon, barX - 4, barY + 13);
 
                 ctx.textAlign = "left";
-                ctx.fillText(nextRankIcon, barX + barW + 8, barY + 13);
+                ctx.fillText(nextRankIcon, barX + barW + 6, barY + 13);
             }
         }
     };
@@ -958,14 +950,13 @@
             ctx.fillStyle = "#a6b0c3";
             ctx.fillText("Yeniden Başlamak İçin Boşluk / Tıkla", canvas.width / 2, canvas.height / 2 + 40);
         } else if (gameState === "PLAY") {
-            // Skor
             ctx.shadowColor = "#9b59b6";
             ctx.shadowBlur = 12;
             ctx.font = "bold 44px 'Segoe UI', Arial";
             ctx.fillText(score, canvas.width / 2, 70);
             ctx.shadowBlur = 0;
 
-            // Canları Göster (Kalpler ❤️)
+            // Canlar (Kalpler ❤️)
             let heartsText = "";
             for (let i = 0; i < playerLives; i++) heartsText += "❤️ ";
             ctx.font = "18px 'Segoe UI', Arial";
@@ -973,9 +964,8 @@
             ctx.fillStyle = "#ff4757";
             ctx.fillText(heartsText, 20, 35);
 
-            // Aktif Power-up Sürelerini Göster
+            // Aktif Power-up Süreleri
             let activePowerUpsText = [];
-            if (ghostTimer > 0) activePowerUpsText.push(`👻 Hayalet: ${Math.ceil(ghostTimer)}s`);
             if (doubleScoreTimer > 0) activePowerUpsText.push(`⚡ 2X Puan: ${Math.ceil(doubleScoreTimer)}s`);
 
             if (activePowerUpsText.length > 0) {
@@ -984,7 +974,7 @@
                 let startX = 20;
                 let startY = 65;
                 activePowerUpsText.forEach((txt, idx) => {
-                    ctx.fillStyle = idx === 0 ? "#00ffff" : "#f1c40f";
+                    ctx.fillStyle = "#f1c40f";
                     ctx.fillText(txt, startX, startY + (idx * 20));
                 });
             }
