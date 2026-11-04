@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Ranked & Collectible</title>
+    <title>Flappy Bird - Star & Crown Ranked System</title>
     <style>
         * {
             box-sizing: border-box;
@@ -43,7 +43,7 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
-            width: 250px;
+            width: 260px;
         }
 
         /* Liderlik Tablosu Paneli */
@@ -70,7 +70,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 14px;
+            font-size: 13px;
             padding: 8px 0;
             border-bottom: 1px solid rgba(255,255,255,0.05);
         }
@@ -80,12 +80,13 @@
         .lb-left {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             overflow: hidden;
-            max-width: 150px;
+            max-width: 155px;
         }
         .lb-icon {
-            font-size: 16px;
+            font-size: 13px;
+            letter-spacing: -1px;
         }
         .lb-nick {
             color: #f3a683;
@@ -100,7 +101,7 @@
         .lb-score {
             font-weight: bold;
             color: #68d391;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         /* Mağaza Butonu */
@@ -300,49 +301,39 @@
         { id: "fire", name: "Alev Kuş", price: 50, color: "#e74c3c" }
     ];
 
-    const ranks = [
-        { limit: 40, icon: "🧱" },
-        { limit: 80, icon: "🥉" },
-        { limit: 120, icon: "🥈" },
-        { limit: 160, icon: "🥇" },
-        { limit: 200, icon: "💎" },
-        { limit: 999, icon: "👑" }
-    ];
+    // Her 20 puanda bir yıldız / taç üreten sistem (1000 puana kadar)
+    function getRankSymbol(score) {
+        if (score < 0) score = 0;
+        let tier = Math.floor(score / 20); // Her 20 puan bir basamak
+        let crowns = Math.floor(tier / 5);  // Her 5 basamak (100 puan) bir taç
+        let stars = tier % 5;              // Kalan basamaklar yıldız (1-5 arası)
 
-    let currentRankIcon = "🧱";
-    let nextRankIcon = "🥉";
+        // Eğer tam 5'in katıysa ve 0 değilse 5 yıldız olsun
+        if (tier > 0 && stars === 0 && crowns > 0) {
+            crowns--;
+            stars = 5;
+        }
+
+        let symbol = "";
+        for (let i = 0; i < crowns; i++) symbol += "👑";
+        for (let i = 0; i < stars; i++) symbol += "⭐";
+        
+        return symbol === "" ? "⭐" : symbol;
+    }
+
+    let currentRankIcon = "⭐";
+    let nextRankIcon = "⭐⭐";
     let progressPercent = 0;
 
     function updateProgressData(currentScore) {
-        let currentRank = ranks[0];
-        let prevLimit = 0;
+        let currentTierMin = Math.floor(currentScore / 20) * 20;
+        let nextTierMin = currentTierMin + 20;
 
-        for (let i = 0; i < ranks.length; i++) {
-            if (currentScore < ranks[i].limit) {
-                currentRank = ranks[i];
-                prevLimit = i === 0 ? 0 : ranks[i - 1].limit;
-                break;
-            }
-        }
+        let progress = currentScore - currentTierMin;
+        progressPercent = Math.min(100, Math.max(0, (progress / 20) * 100));
 
-        let percent = 100;
-        if (currentScore < 200) {
-            let span = currentRank.limit - prevLimit;
-            let progress = currentScore - prevLimit;
-            percent = Math.min(100, Math.max(0, (progress / span) * 100));
-        }
-
-        currentRankIcon = currentRank.icon;
-        
-        let nextIcon = "👑";
-        for (let i = 0; i < ranks.length; i++) {
-            if (ranks[i].limit > currentScore) {
-                nextIcon = ranks[i].icon;
-                break;
-            }
-        }
-        nextRankIcon = nextIcon;
-        progressPercent = percent;
+        currentRankIcon = getRankSymbol(currentScore);
+        nextRankIcon = getRankSymbol(nextTierMin);
     }
 
     document.getElementById("login-btn").addEventListener("click", () => {
@@ -351,7 +342,7 @@
         const errBox = document.getElementById("error-msg");
 
         if (!nick || !pass) {
-            errBox.innerText = "Lütfen nick ve şifre gir!";
+            errBox.innerText = "Lütfen kullanıcı adı ve şifre gir!";
             return;
         }
 
@@ -479,15 +470,6 @@
         }
     });
 
-    function getRankIcon(s) {
-        if (s < 40)  return "🧱";
-        if (s < 80)  return "🥉";
-        if (s < 120) return "🥈";
-        if (s < 160) return "🥇";
-        if (s < 200) return "💎";
-        return "👑";
-    }
-
     async function fetchLeaderboard() {
         try {
             const scoresRef = query(ref(db, 'scores'), orderByChild('score'), limitToLast(5));
@@ -513,10 +495,10 @@
         }
         let html = "";
         topScores.forEach((item, index) => {
-            let icon = getRankIcon(item.score);
+            let symbol = getRankSymbol(item.score);
             html += `<div class="lb-item">
                         <div class="lb-left">
-                            <span class="lb-icon">${icon}</span>
+                            <span class="lb-icon">${symbol}</span>
                             <span class="lb-nick">${index + 1}. ${item.nick}</span>
                         </div>
                         <div class="lb-score-box">
@@ -567,7 +549,7 @@
     let scoreSaved = false;
     let elapsedTime = 0;
     let pipeTimer = 0;
-    let nextSakayikCount = Math.floor(Math.random() * 4) + 3; // İlk şakayık için 3, 4, 5 veya 6 boru sonra
+    let nextSakayikCount = Math.floor(Math.random() * 4) + 3;
 
     const bird = {
         x: 70,
@@ -683,7 +665,6 @@
 
                 ctx.shadowBlur = 0;
 
-                // Eğer bu boruda Şakayık varsa çiz
                 if (p.hasSakayik && !p.sakayikCollected) {
                     let sakayikX = p.x + (this.w / 2) - 18;
                     let sakayikY = p.y + (this.gap / 2) - 18;
@@ -712,10 +693,9 @@
                 nextSakayikCount--;
                 let spawnThisPipe = false;
 
-                // Sayacımız 0'a ulaştığında şakayık üret ve bir sonraki için 3 ile 6 arasında yeni rastgele boru sayısı belirle
                 if (nextSakayikCount <= 0) {
                     spawnThisPipe = true;
-                    nextSakayikCount = Math.floor(Math.random() * 4) + 3; // 3, 4, 5 veya 6
+                    nextSakayikCount = Math.floor(Math.random() * 4) + 3;
                 }
 
                 this.position.push({
@@ -737,14 +717,12 @@
                 let pipeRight = p.x + this.w;
                 let pipeBottomGap = p.y + this.gap;
 
-                // Boru Çarpışma Kontrolü
                 if (birdRight > p.x && bird.x < pipeRight) {
                     if (bird.y < p.y || birdBottom > pipeBottomGap) {
                         gameOver();
                     }
                 }
 
-                // Şakayık Toplama Kontrolü
                 if (p.hasSakayik && !p.sakayikCollected) {
                     let sakayikX = p.x + (this.w / 2) - 18;
                     let sakayikY = p.y + (this.gap / 2) - 18;
@@ -756,7 +734,7 @@
                         birdBottom > sakayikY
                     ) {
                         p.sakayikCollected = true;
-                        score++; // Şakayık toplanınca skora doğrudan +1 ekleniyor
+                        score++;
                         updateProgressData(score);
                     }
                 }
@@ -811,12 +789,13 @@
                 ctx.fillStyle = grad;
                 ctx.fillRect(barX + 2, barY + 2, fillW, barH - 4);
 
-                ctx.font = "14px 'Segoe UI', Arial";
+                ctx.font = "12px 'Segoe UI', Arial";
+                ctx.fillStyle = "#FFF";
                 ctx.textAlign = "right";
-                ctx.fillText(currentRankIcon, barX - 8, barY + 13);
+                ctx.fillText(currentRankIcon, barX - 6, barY + 13);
 
                 ctx.textAlign = "left";
-                ctx.fillText(nextRankIcon, barX + barW + 10, barY + 13);
+                ctx.fillText(nextRankIcon, barX + barW + 8, barY + 13);
             }
         }
     };
@@ -853,12 +832,12 @@
             ctx.fillStyle = "#ff7675";
             ctx.fillText("OYUN BİTTİ", canvas.width / 2, canvas.height / 2 - 50);
 
-            let icon = getRankIcon(score);
+            let symbol = getRankSymbol(score);
             ctx.shadowColor = "#f1c40f";
             ctx.shadowBlur = 10;
-            ctx.font = "bold 26px 'Segoe UI', Arial";
+            ctx.font = "bold 22px 'Segoe UI', Arial";
             ctx.fillStyle = "#FFF";
-            ctx.fillText(icon + " Skor: " + score, canvas.width / 2, canvas.height / 2 - 5);
+            ctx.fillText(symbol + " Skor: " + score, canvas.width / 2, canvas.height / 2 - 5);
 
             ctx.shadowBlur = 0;
             ctx.font = "15px 'Segoe UI', Arial";
