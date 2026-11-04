@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Ranked & Progress Bar</title>
+    <title>Flappy Bird - Ranked & Collectible</title>
     <style>
         * {
             box-sizing: border-box;
@@ -549,6 +549,10 @@
     const birdImg = new Image();
     birdImg.src = "resim.png"; 
 
+    // Şakayık (Koleksiyon) Görseli
+    const sakayikImg = new Image();
+    sakayikImg.src = "Şakayık.png";
+
     const stars = [];
     for (let i = 0; i < 55; i++) {
         stars.push({
@@ -564,6 +568,7 @@
     let scoreSaved = false;
     let elapsedTime = 0;
     let pipeTimer = 0;
+    let pipeCounter = 0; // Boru sayacı (her 2 veya 3 boruda bir Şakayık üretmek için)
 
     const bird = {
         x: 70,
@@ -678,6 +683,26 @@
                 ctx.strokeRect(p.x - 3, bottomY, this.w + 6, 20);
 
                 ctx.shadowBlur = 0;
+
+                // Eğer bu boruda Şakayık varsa tam ortaya çiz
+                if (p.hasSakayik && !p.sakayikCollected) {
+                    let sakayikX = p.x + (this.w / 2) - 18;
+                    let sakayikY = p.y + (this.gap / 2) - 18;
+
+                    ctx.save();
+                    ctx.shadowColor = "#ff7675";
+                    ctx.shadowBlur = 12;
+                    if (sakayikImg.complete && sakayikImg.naturalWidth !== 0) {
+                        ctx.drawImage(sakayikImg, sakayikX, sakayikY, 36, 36);
+                    } else {
+                        // Resim yüklenene kadar geçici parlayan daire
+                        ctx.fillStyle = "#ff7675";
+                        ctx.beginPath();
+                        ctx.arc(sakayikX + 18, sakayikY + 18, 16, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
             }
         },
 
@@ -686,10 +711,16 @@
 
             pipeTimer += dt;
             if (pipeTimer > this.spawnInterval) {
+                pipeCounter++;
+                // Her 2 veya 3 borudan birinde rastgele şakayık çıksın (örneğin %60 ihtimalle veya her 2-3 sayacında bir)
+                let spawnChance = (pipeCounter % 2 === 0); 
+
                 this.position.push({
                     x: canvas.width,
                     y: Math.floor(Math.random() * (canvas.height - 280 - this.gap)) + 50,
-                    passed: false
+                    passed: false,
+                    hasSakayik: spawnChance,
+                    sakayikCollected: false
                 });
                 pipeTimer = 0;
             }
@@ -703,9 +734,28 @@
                 let pipeRight = p.x + this.w;
                 let pipeBottomGap = p.y + this.gap;
 
+                // Boru Çarpışma Kontrolü
                 if (birdRight > p.x && bird.x < pipeRight) {
                     if (bird.y < p.y || birdBottom > pipeBottomGap) {
                         gameOver();
+                    }
+                }
+
+                // Şakayık Toplama (Koleksiyon) Çarpışma Kontrolü
+                if (p.hasSakayik && !p.sakayikCollected) {
+                    let sakayikX = p.x + (this.w / 2) - 18;
+                    let sakayikY = p.y + (this.gap / 2) - 18;
+
+                    // Kuş ile Şakayık hitbox kontrolü
+                    if (
+                        bird.x < sakayikX + 36 &&
+                        birdRight > sakayikX &&
+                        bird.y < sakayikY + 36 &&
+                        birdBottom > sakayikY
+                    ) {
+                        p.sakayikCollected = true;
+                        totalCoins += 5; // Şakayık toplanınca ekstra 5 puan/altın kazandırır!
+                        saveAccountData();
                     }
                 }
 
@@ -725,6 +775,7 @@
         reset() {
             this.position = [];
             pipeTimer = 0;
+            pipeCounter = 0;
         }
     };
 
@@ -840,6 +891,7 @@
         score = 0;
         scoreSaved = false;
         pipeTimer = 0;
+        pipeCounter = 0;
         updateProgressData(0);
         gameState = "PLAY";
         bird.flap();
