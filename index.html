@@ -161,14 +161,16 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, push, set, get, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+    // 🔥 Firebase Bilgilerin Güncellendi 🔥
     const firebaseConfig = {
-        apiKey: "SENIN_API_KEY",
-        authDomain: "SENIN_PROJE.firebaseapp.com",
-        databaseURL: "https://SENIN_PROJE-default-rtdb.firebaseio.com",
-        projectId: "SENIN_PROJE",
-        storageBucket: "SENIN_PROJE.appspot.com",
-        messagingSenderId: "SENIN_ID",
-        appId: "SENIN_APP_ID"
+        apiKey: "AIzaSyDdAU6Ie4VQbrUF4U4lmKGriYq6B_aNOgM",
+        authDomain: "flappy-ahsen.firebaseapp.com",
+        databaseURL: "https://flappy-ahsen-default-rtdb.firebaseio.com",
+        projectId: "flappy-ahsen",
+        storageBucket: "flappy-ahsen.appspot.com",
+        messagingSenderId: "180073031220",
+        appId: "1:180073031220:web:eef3f219279d521daab9d9",
+        measurementId: "G-K4N9F8PH4C"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -244,7 +246,7 @@
 
     let frames = 0;
     let score = 0;
-    let gameState = "WAITING_NICK"; // Başlangıçta nick ekranının kapanması bekleniyor
+    let gameState = "WAITING_NICK"; 
     let scoreSaved = false;
 
     const bird = {
@@ -523,7 +525,7 @@
         document.getElementById("nick-screen").style.display = "none";
         document.getElementById("leaderboard").style.display = "block";
         fetchLeaderboard();
-        gameState = "START"; // Oyun artık tıklamaya hazır duruma geçiyor
+        gameState = "START"; 
     });
 
     function loop() {
