@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Shop & Leaderboard</title>
+    <title>Flappy Bird - Secure Account & Shop</title>
     <style>
         * {
             box-sizing: border-box;
@@ -94,7 +94,7 @@
             font-size: 14px;
         }
 
-        /* Ortak Overlay / Menü Stilleri */
+        /* Ortak Ekran Stilleri */
         .screen {
             position: absolute;
             top: 0;
@@ -116,20 +116,20 @@
             margin-bottom: 15px;
             text-shadow: 0 0 10px rgba(224, 86, 253, 0.5);
         }
-        #nick-input {
+        .input-field {
             padding: 12px 20px;
-            font-size: 16px;
+            font-size: 15px;
             border-radius: 8px;
             border: 2px solid #a855f7;
             background: #1e0b36;
             color: #fff;
             outline: none;
             text-align: center;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             width: 80%;
             max-width: 250px;
         }
-        #nick-input:focus {
+        .input-field:focus {
             border-color: #e056fd;
             box-shadow: 0 0 10px rgba(224, 86, 253, 0.5);
         }
@@ -150,6 +150,13 @@
         .menu-btn:hover {
             transform: scale(1.05);
             box-shadow: 0 0 20px rgba(168, 85, 247, 0.7);
+        }
+
+        #error-msg {
+            color: #ff7675;
+            font-size: 13px;
+            margin-bottom: 10px;
+            height: 15px;
         }
 
         /* Mağaza Paneli */
@@ -192,21 +199,28 @@
 <body>
 
 <div id="game-wrapper">
-    <!-- Giriş Ekranı -->
+    <!-- Giriş / Kayıt Ekranı -->
     <div id="nick-screen" class="screen">
-        <h2>FLAPPY BIRD</h2>
-        <input type="text" id="nick-input" placeholder="Nickini Yaz..." maxlength="12" autocomplete="off">
-        <button id="start-btn" class="menu-btn">Oyuna Başla</button>
+        <h2>HESAP GİRİŞİ</h2>
+        <div id="error-msg"></div>
+        <input type="text" id="nick-input" class="input-field" placeholder="Nickini Yaz..." maxlength="12" autocomplete="off">
+        <input type="password" id="pass-input" class="input-field" placeholder="Şifren..." maxlength="16" autocomplete="off">
+        <button id="login-btn" class="menu-btn">Giriş / Kayıt Ol</button>
+    </div>
+
+    <!-- Oyun İçi Ana Menü -->
+    <div id="menu-screen" class="screen" style="display: none;">
+        <h2>HOŞ GELDİN, <span id="welcome-nick" style="color:#68d391;"></span></h2>
+        <button id="start-game-btn" class="menu-btn">Oyuna Başla</button>
         <button id="open-shop-btn" class="menu-btn" style="background: linear-gradient(135deg, #3498db, #2ecc71);">Mağaza 🛒</button>
+        <button id="logout-btn" class="menu-btn" style="background: linear-gradient(135deg, #e74c3c, #c0392b);">Çıkış Yap</button>
     </div>
 
     <!-- Mağaza Ekranı -->
     <div id="shop-screen" class="screen">
         <h2>MAĞAZA</h2>
         <div id="player-coins">💰 Puanın: <span id="coin-val">0</span></div>
-        <div class="shop-items" id="shop-items-container">
-            <!-- JavaScript ile doldurulacak -->
-        </div>
+        <div class="shop-items" id="shop-items-container"></div>
         <button id="close-shop-btn" class="menu-btn">Geri Dön</button>
     </div>
     
@@ -240,13 +254,11 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let playerNick = "Oyuncu";
+    let playerNick = "";
+    let totalCoins = 0;
+    let unlockedSkins = ["default"];
+    let currentSkin = "default";
     let topScores = [];
-
-    // Mağaza & Puan Sistemi (LocalStorage)
-    let totalCoins = parseInt(localStorage.getItem("flappy_coins") || "0");
-    let unlockedSkins = JSON.parse(localStorage.getItem("flappy_unlocked") || '["default"]');
-    let currentSkin = localStorage.getItem("flappy_current_skin") || "default";
 
     const skins = [
         { id: "default", name: "Mor Kuş", price: 0, color: "#e056fd" },
@@ -254,6 +266,74 @@
         { id: "fire", name: "Alev Kuş", price: 50, color: "#e74c3c" }
     ];
 
+    // Giriş / Kayıt İşlemi
+    document.getElementById("login-btn").addEventListener("click", () => {
+        const nick = document.getElementById("nick-input").value.trim();
+        const pass = document.getElementById("pass-input").value.trim();
+        const errBox = document.getElementById("error-msg");
+
+        if (!nick || !pass) {
+            errBox.innerText = "Lütfen nick ve şifre gir!";
+            return;
+        }
+
+        let savedAccounts = JSON.parse(localStorage.getItem("flappy_accounts") || "{}");
+
+        if (savedAccounts[nick]) {
+            // Hesap varsa şifre kontrolü yap
+            if (savedAccounts[nick].pass === pass) {
+                playerNick = nick;
+                totalCoins = savedAccounts[nick].coins;
+                unlockedSkins = savedAccounts[nick].unlocked;
+                currentSkin = savedAccounts[nick].skin;
+                openMenu();
+            } else {
+                errBox.innerText = "Şifre yanlış!";
+            }
+        } else {
+            // Hesap yoksa yeni oluştur (Kayıt ol)
+            savedAccounts[nick] = { pass: pass, coins: 0, unlocked: ["default"], skin: "default" };
+            localStorage.setItem("flappy_accounts", JSON.stringify(savedAccounts));
+            playerNick = nick;
+            totalCoins = 0;
+            unlockedSkins = ["default"];
+            currentSkin = "default";
+            openMenu();
+        }
+    });
+
+    function saveAccountData() {
+        let savedAccounts = JSON.parse(localStorage.getItem("flappy_accounts") || "{}");
+        if (savedAccounts[playerNick]) {
+            savedAccounts[playerNick].coins = totalCoins;
+            savedAccounts[playerNick].unlocked = unlockedSkins;
+            savedAccounts[playerNick].skin = currentSkin;
+            localStorage.setItem("flappy_accounts", JSON.stringify(savedAccounts));
+        }
+    }
+
+    function openMenu() {
+        document.getElementById("nick-screen").style.display = "none";
+        document.getElementById("menu-screen").style.display = "flex";
+        document.getElementById("welcome-nick").innerText = playerNick;
+    }
+
+    document.getElementById("logout-btn").addEventListener("click", () => {
+        document.getElementById("menu-screen").style.display = "none";
+        document.getElementById("nick-screen").style.display = "flex";
+        document.getElementById("nick-input").value = "";
+        document.getElementById("pass-input").value = "";
+        document.getElementById("error-msg").innerText = "";
+    });
+
+    document.getElementById("start-game-btn").addEventListener("click", () => {
+        document.getElementById("menu-screen").style.display = "none";
+        document.getElementById("leaderboard").style.display = "block";
+        fetchLeaderboard();
+        gameState = "START";
+    });
+
+    // Mağaza Kontrolleri
     function updateShopUI() {
         document.getElementById("coin-val").innerText = totalCoins;
         const container = document.getElementById("shop-items-container");
@@ -276,16 +356,14 @@
             card.addEventListener("click", () => {
                 if (isUnlocked) {
                     currentSkin = skin.id;
-                    localStorage.setItem("flappy_current_skin", currentSkin);
+                    saveAccountData();
                     updateShopUI();
                 } else {
                     if (totalCoins >= skin.price) {
                         totalCoins -= skin.price;
-                        localStorage.setItem("flappy_coins", totalCoins);
                         unlockedSkins.push(skin.id);
-                        localStorage.setItem("flappy_unlocked", JSON.stringify(unlockedSkins));
                         currentSkin = skin.id;
-                        localStorage.setItem("flappy_current_skin", currentSkin);
+                        saveAccountData();
                         updateShopUI();
                     } else {
                         alert("Yeterli puanın yok!");
@@ -296,16 +374,15 @@
         });
     }
 
-    // Menü Butonları
     document.getElementById("open-shop-btn").addEventListener("click", () => {
         updateShopUI();
-        document.getElementById("nick-screen").style.display = "none";
+        document.getElementById("menu-screen").style.display = "none";
         document.getElementById("shop-screen").style.display = "flex";
     });
 
     document.getElementById("close-shop-btn").addEventListener("click", () => {
         document.getElementById("shop-screen").style.display = "none";
-        document.getElementById("nick-screen").style.display = "flex";
+        document.getElementById("menu-screen").style.display = "flex";
     });
 
     function getRankIcon(s) {
@@ -409,7 +486,6 @@
             let angle = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (this.velocity / 12)));
             ctx.rotate(angle);
 
-            // Seçilen Skine göre renk belirleme
             let activeSkinObj = skins.find(s => s.id === currentSkin) || skins[0];
 
             ctx.save();
@@ -635,9 +711,9 @@
         if (gameState !== "GAMEOVER") {
             gameState = "GAMEOVER";
             
-            // Kazanılan puanları cüzdana ekle ve kaydet
+            // Kazanılan puanları hesaba ekle ve kaydet
             totalCoins += score;
-            localStorage.setItem("flappy_coins", totalCoins);
+            saveAccountData();
 
             if (!scoreSaved) {
                 scoreSaved = true;
@@ -672,17 +748,6 @@
     });
     canvas.addEventListener("click", () => {
         if (gameState !== "WAITING_NICK") handleAction();
-    });
-
-    document.getElementById("start-btn").addEventListener("click", () => {
-        const inputVal = document.getElementById("nick-input").value.trim();
-        if (inputVal) {
-            playerNick = inputVal;
-        }
-        document.getElementById("nick-screen").style.display = "none";
-        document.getElementById("leaderboard").style.display = "block";
-        fetchLeaderboard();
-        gameState = "START"; 
     });
 
     let lastTime = performance.now();
