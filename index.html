@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Rare Space Power-ups & Ranked</title>
+    <title>Flappy Bird - Perfect Power-ups & Ranked</title>
     <style>
         * {
             box-sizing: border-box;
@@ -562,9 +562,9 @@
     let elapsedTime = 0;
     let pipeTimer = 0;
     let nextSakayikCount = Math.floor(Math.random() * 4) + 3;
-    let freePowerUpTimer = 0; // Borulardan bağımsız, arkadaki boşluklarda çok nadir beliren güçlendiriciler için sayaç
+    let freePowerUpTimer = 0; 
 
-    // Serbest boşluk güçlendiricileri listesi (Borulara bağlı değil, arkadaki boş alanlarda gezer)
+    // Serbest boşluk güçlendiricileri (Görselde işaretlediğin boru aralarındaki boşluklarda çok nadir belirir)
     let floatingPowerUps = [];
 
     const bird = {
@@ -664,7 +664,6 @@
         spawnInterval: 1.15, 
 
         draw() {
-            // Boruları ve aralarındaki şakayıkları çiz
             for (let i = 0; i < this.position.length; i++) {
                 let p = this.position[i];
                 let topY = p.y;
@@ -713,25 +712,27 @@
                 }
             }
 
-            // Borulardan bağımsız, arka plandaki boşluklarda serbestçe süzülen nadir güçlendiricileri çiz
+            // Boru aralarındaki boşluklarda gezen nadir güçlendiriciler (Sadece toplanmamışsa çizilir)
             for (let i = 0; i < floatingPowerUps.length; i++) {
                 let fpu = floatingPowerUps[i];
-                ctx.save();
-                ctx.shadowColor = fpu.type === '2X' ? "#f1c40f" : "#ff4757";
-                ctx.shadowBlur = 15;
-                ctx.fillStyle = fpu.type === '2X' ? "#f1c40f" : "#ff4757";
-                ctx.beginPath();
-                ctx.arc(fpu.x + 16, fpu.y + 16, 18, 0, Math.PI * 2);
-                ctx.fill();
+                if (!fpu.collected) {
+                    ctx.save();
+                    ctx.shadowColor = fpu.type === '2X' ? "#f1c40f" : "#ff4757";
+                    ctx.shadowBlur = 15;
+                    ctx.fillStyle = fpu.type === '2X' ? "#f1c40f" : "#ff4757";
+                    ctx.beginPath();
+                    ctx.arc(fpu.x + 16, fpu.y + 16, 18, 0, Math.PI * 2);
+                    ctx.fill();
 
-                ctx.fillStyle = "#0b0410";
-                ctx.font = "bold 13px 'Segoe UI', Arial";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                
-                let symbol = fpu.type === '2X' ? "⚡" : "❤️";
-                ctx.fillText(symbol, fpu.x + 16, fpu.y + 17);
-                ctx.restore();
+                    ctx.fillStyle = "#0b0410";
+                    ctx.font = "bold 13px 'Segoe UI', Arial";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    
+                    let symbol = fpu.type === '2X' ? "⚡" : "❤️";
+                    ctx.fillText(symbol, fpu.x + 16, fpu.y + 17);
+                    ctx.restore();
+                }
             }
         },
 
@@ -741,23 +742,21 @@
             if (doubleScoreTimer > 0) doubleScoreTimer -= dt;
             if (hitCooldown > 0) hitCooldown -= dt;
 
-            // Çok Nadir Serbest Güçlendirici Üretme Mantığı (Borulardan bağımsız, arka boşluklarda)
+            // Çok Nadir Serbest Güçlendirici Üretme Mantığı (Boruların arasındaki boşluk alanlarında)
             freePowerUpTimer += dt;
-            if (freePowerUpTimer > 12.0) { // Yaklaşık her 12 saniyede bir nadir şans denemesi
+            if (freePowerUpTimer > 15.0) { // Yaklaşık 15 saniyede bir nadir şans
                 freePowerUpTimer = 0;
-                // %40 ihtimalle arkadaki boşluklara bırakılır (çok nadir olması için)
-                if (Math.random() < 0.40) {
+                if (Math.random() < 0.45) {
                     let puType = Math.random() < 0.5 ? '2X' : 'HEART';
                     floatingPowerUps.push({
                         x: canvas.width,
-                        y: Math.floor(Math.random() * (canvas.height - 220)) + 70, // Ekranın güvenli boşluk yüksekliklerinde
+                        y: Math.floor(Math.random() * (canvas.height - 260)) + 80, // Ekranın güvenli orta yüksekliklerinde
                         type: puType,
                         collected: false
                     });
                 }
             }
 
-            // Serbest güçlendiricileri sola kaydır ve çarpışma kontrolü yap
             let birdRight = bird.x + bird.w;
             let birdBottom = bird.y + bird.h;
 
@@ -765,7 +764,6 @@
                 let fpu = floatingPowerUps[i];
                 fpu.x -= this.dx * factor;
 
-                // Kuşla temas kontrolü
                 if (!fpu.collected) {
                     if (
                         bird.x < fpu.x + 32 &&
@@ -773,7 +771,7 @@
                         bird.y < fpu.y + 32 &&
                         birdBottom > fpu.y
                     ) {
-                        fpu.collected = true;
+                        fpu.collected = true; // Toplandığı an bir daha görünmeyecek şekilde işaretlenir
                         if (fpu.type === '2X') {
                             doubleScoreTimer = 20; 
                         } else if (fpu.type === 'HEART') {
@@ -782,7 +780,6 @@
                     }
                 }
 
-                // Ekrandan çıkanları temizle
                 if (fpu.x + 32 < 0) {
                     floatingPowerUps.splice(i, 1);
                     i--;
