@@ -549,7 +549,6 @@
     const birdImg = new Image();
     birdImg.src = "resim.png"; 
 
-    // Şakayık (Koleksiyon) Görseli
     const sakayikImg = new Image();
     sakayikImg.src = "Şakayık.png";
 
@@ -568,7 +567,7 @@
     let scoreSaved = false;
     let elapsedTime = 0;
     let pipeTimer = 0;
-    let pipeCounter = 0; // Boru sayacı (her 2 veya 3 boruda bir Şakayık üretmek için)
+    let nextSakayikCount = Math.floor(Math.random() * 4) + 3; // İlk şakayık için 3, 4, 5 veya 6 boru sonra
 
     const bird = {
         x: 70,
@@ -684,7 +683,7 @@
 
                 ctx.shadowBlur = 0;
 
-                // Eğer bu boruda Şakayık varsa tam ortaya çiz
+                // Eğer bu boruda Şakayık varsa çiz
                 if (p.hasSakayik && !p.sakayikCollected) {
                     let sakayikX = p.x + (this.w / 2) - 18;
                     let sakayikY = p.y + (this.gap / 2) - 18;
@@ -695,7 +694,6 @@
                     if (sakayikImg.complete && sakayikImg.naturalWidth !== 0) {
                         ctx.drawImage(sakayikImg, sakayikX, sakayikY, 36, 36);
                     } else {
-                        // Resim yüklenene kadar geçici parlayan daire
                         ctx.fillStyle = "#ff7675";
                         ctx.beginPath();
                         ctx.arc(sakayikX + 18, sakayikY + 18, 16, 0, Math.PI * 2);
@@ -711,15 +709,20 @@
 
             pipeTimer += dt;
             if (pipeTimer > this.spawnInterval) {
-                pipeCounter++;
-                // Her 2 veya 3 borudan birinde rastgele şakayık çıksın (örneğin %60 ihtimalle veya her 2-3 sayacında bir)
-                let spawnChance = (pipeCounter % 2 === 0); 
+                nextSakayikCount--;
+                let spawnThisPipe = false;
+
+                // Sayacımız 0'a ulaştığında şakayık üret ve bir sonraki için 3 ile 6 arasında yeni rastgele boru sayısı belirle
+                if (nextSakayikCount <= 0) {
+                    spawnThisPipe = true;
+                    nextSakayikCount = Math.floor(Math.random() * 4) + 3; // 3, 4, 5 veya 6
+                }
 
                 this.position.push({
                     x: canvas.width,
                     y: Math.floor(Math.random() * (canvas.height - 280 - this.gap)) + 50,
                     passed: false,
-                    hasSakayik: spawnChance,
+                    hasSakayik: spawnThisPipe,
                     sakayikCollected: false
                 });
                 pipeTimer = 0;
@@ -741,12 +744,11 @@
                     }
                 }
 
-                // Şakayık Toplama (Koleksiyon) Çarpışma Kontrolü
+                // Şakayık Toplama Kontrolü
                 if (p.hasSakayik && !p.sakayikCollected) {
                     let sakayikX = p.x + (this.w / 2) - 18;
                     let sakayikY = p.y + (this.gap / 2) - 18;
 
-                    // Kuş ile Şakayık hitbox kontrolü
                     if (
                         bird.x < sakayikX + 36 &&
                         birdRight > sakayikX &&
@@ -754,8 +756,8 @@
                         birdBottom > sakayikY
                     ) {
                         p.sakayikCollected = true;
-                        totalCoins += 5; // Şakayık toplanınca ekstra 5 puan/altın kazandırır!
-                        saveAccountData();
+                        score++; // Şakayık toplanınca skora doğrudan +1 ekleniyor
+                        updateProgressData(score);
                     }
                 }
 
@@ -775,7 +777,7 @@
         reset() {
             this.position = [];
             pipeTimer = 0;
-            pipeCounter = 0;
+            nextSakayikCount = Math.floor(Math.random() * 4) + 3;
         }
     };
 
@@ -891,7 +893,6 @@
         score = 0;
         scoreSaved = false;
         pipeTimer = 0;
-        pipeCounter = 0;
         updateProgressData(0);
         gameState = "PLAY";
         bird.flap();
