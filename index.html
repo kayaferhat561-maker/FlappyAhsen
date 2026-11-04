@@ -79,18 +79,26 @@
         }
         .lb-left {
             display: flex;
+            flex-direction: column; /* İsim üstte, simgeler altta olsun */
+            gap: 2px;
+            overflow: hidden;
+            max-width: 170px;
+        }
+        .lb-nick-row {
+            display: flex;
             align-items: center;
             gap: 6px;
-            overflow: hidden;
-            max-width: 155px;
         }
         .lb-icon {
-            font-size: 13px;
+            font-size: 11px; /* Simgelerin boyutu küçültüldü */
             letter-spacing: -1px;
+            line-height: 1;
+            padding-left: 15px; /* Sıralama numarası hizasından başlasın */
         }
         .lb-nick {
             color: #f3a683;
             font-weight: bold;
+            font-size: 13px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -101,7 +109,7 @@
         .lb-score {
             font-weight: bold;
             color: #68d391;
-            font-size: 13px;
+            font-size: 14px;
         }
 
         /* Mağaza Butonu */
@@ -301,14 +309,12 @@
         { id: "fire", name: "Alev Kuş", price: 50, color: "#e74c3c" }
     ];
 
-    // Her 20 puanda bir yıldız / taç üreten sistem (1000 puana kadar)
     function getRankSymbol(score) {
         if (score < 0) score = 0;
-        let tier = Math.floor(score / 20); // Her 20 puan bir basamak
-        let crowns = Math.floor(tier / 5);  // Her 5 basamak (100 puan) bir taç
-        let stars = tier % 5;              // Kalan basamaklar yıldız (1-5 arası)
+        let tier = Math.floor(score / 20);
+        let crowns = Math.floor(tier / 5);
+        let stars = tier % 5;
 
-        // Eğer tam 5'in katıysa ve 0 değilse 5 yıldız olsun
         if (tier > 0 && stars === 0 && crowns > 0) {
             crowns--;
             stars = 5;
@@ -404,7 +410,6 @@
         gameState = "START";
     });
 
-    // Mağaza Kontrolleri
     function updateShopUI() {
         document.getElementById("coin-val").innerText = totalCoins;
         const container = document.getElementById("shop-items-container");
@@ -496,10 +501,13 @@
         let html = "";
         topScores.forEach((item, index) => {
             let symbol = getRankSymbol(item.score);
+            // Simgeler ismin altında ve daha küçük boyutlu olacak şekilde düzenlendi
             html += `<div class="lb-item">
                         <div class="lb-left">
+                            <div class="lb-nick-row">
+                                <span class="lb-nick">${index + 1}. ${item.nick}</span>
+                            </div>
                             <span class="lb-icon">${symbol}</span>
-                            <span class="lb-nick">${index + 1}. ${item.nick}</span>
                         </div>
                         <div class="lb-score-box">
                             <span class="lb-score">${item.score}</span>
