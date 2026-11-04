@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Star & Crown Ranked System</title>
+    <title>Flappy Bird - Ghost, ⚡ & ❤️ Health System</title>
     <style>
         * {
             box-sizing: border-box;
@@ -79,7 +79,7 @@
         }
         .lb-left {
             display: flex;
-            flex-direction: column; /* İsim üstte, simgeler altta olsun */
+            flex-direction: column;
             gap: 2px;
             overflow: hidden;
             max-width: 170px;
@@ -90,10 +90,10 @@
             gap: 6px;
         }
         .lb-icon {
-            font-size: 11px; /* Simgelerin boyutu küçültüldü */
+            font-size: 11px;
             letter-spacing: -1px;
             line-height: 1;
-            padding-left: 15px; /* Sıralama numarası hizasından başlasın */
+            padding-left: 15px;
         }
         .lb-nick {
             color: #f3a683;
@@ -303,6 +303,12 @@
     let topScores = [];
     let returningFromShop = false;
 
+    // Oyun İçi Durumlar ve Can/Güçlendirmeler
+    let playerLives = 1;         // Başlangıçta 1 Can
+    let ghostTimer = 0;          // Hayalet / Görünmezlik (20 saniye)
+    let doubleScoreTimer = 0;    // ⚡ 2X Çarpanı (20 saniye)
+    let hitCooldown = 0;         // Üst üste hasar almayı engellemek için mini koruma süresi
+
     const skins = [
         { id: "default", name: "Mor Kuş", price: 0, color: "#e056fd" },
         { id: "gold", name: "Altın Kuş", price: 25, color: "#f1c40f" },
@@ -501,7 +507,6 @@
         let html = "";
         topScores.forEach((item, index) => {
             let symbol = getRankSymbol(item.score);
-            // Simgeler ismin altında ve daha küçük boyutlu olacak şekilde düzenlendi
             html += `<div class="lb-item">
                         <div class="lb-left">
                             <div class="lb-nick-row">
@@ -558,6 +563,7 @@
     let elapsedTime = 0;
     let pipeTimer = 0;
     let nextSakayikCount = Math.floor(Math.random() * 4) + 3;
+    let nextPowerUpCount = Math.floor(Math.random() * 4) + 4; 
 
     const bird = {
         x: 70,
@@ -578,8 +584,10 @@
 
             ctx.save();
             ctx.shadowColor = activeSkinObj.color;
-            ctx.shadowBlur = 14;
-            ctx.fillStyle = activeSkinObj.color;
+            ctx.shadowBlur = ghostTimer > 0 ? 20 : 14;
+            // Hayalet modundayken kuş yarı saydam ve mavimsi/turkuaz görünür
+            ctx.globalAlpha = ghostTimer > 0 ? 0.6 : 1.0;
+            ctx.fillStyle = ghostTimer > 0 ? "#00ffff" : activeSkinObj.color;
             ctx.beginPath();
             ctx.arc(0, 0, this.w / 2 + 1, 0, Math.PI * 2);
             ctx.fill();
@@ -599,8 +607,8 @@
 
             ctx.save();
             ctx.translate(this.x + this.w / 2, this.y + this.h / 2);
-            ctx.strokeStyle = "#f3a683";
-            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = ghostTimer > 0 ? "#00ffff" : "#f3a683";
+            ctx.lineWidth = ghostTimer > 0 ? 3.5 : 2.5;
             ctx.beginPath();
             ctx.arc(0, 0, this.w / 2, 0, Math.PI * 2);
             ctx.stroke();
@@ -615,7 +623,7 @@
 
                 if (this.y + this.h >= canvas.height - 50) {
                     this.y = canvas.height - 50 - this.h;
-                    gameOver();
+                    handleDamage();
                 }
                 if (this.y <= 0) {
                     this.y = 0;
@@ -637,6 +645,18 @@
         }
     };
 
+    function handleDamage() {
+        if (ghostTimer > 0) return; // Hayalet (görünmezlik) modundayken hasar alınmaz
+        if (hitCooldown > 0) return; // Üst üste anında ölmesin diye kısa süre koruma
+
+        playerLives--;
+        hitCooldown = 1.0; // 1 saniye hasar almama koruması
+
+        if (playerLives <= 0) {
+            gameOver();
+        }
+    }
+
     const pipes = {
         position: [],
         w: 72,
@@ -650,16 +670,23 @@
                 let topY = p.y;
                 let bottomY = p.y + this.gap;
 
+                // Hayalet aktifken borular (duvarlar) soluk renkli görünür
                 let pipeGradient = ctx.createLinearGradient(p.x, 0, p.x + this.w, 0);
-                pipeGradient.addColorStop(0, '#2d0a4e');
-                pipeGradient.addColorStop(0.5, '#481380');
-                pipeGradient.addColorStop(1, '#1a052e');
+                if (ghostTimer > 0) {
+                    pipeGradient.addColorStop(0, 'rgba(45, 10, 78, 0.3)');
+                    pipeGradient.addColorStop(0.5, 'rgba(72, 19, 128, 0.3)');
+                    pipeGradient.addColorStop(1, 'rgba(26, 5, 46, 0.3)');
+                } else {
+                    pipeGradient.addColorStop(0, '#2d0a4e');
+                    pipeGradient.addColorStop(0.5, '#481380');
+                    pipeGradient.addColorStop(1, '#1a052e');
+                }
 
                 ctx.fillStyle = pipeGradient;
-                ctx.strokeStyle = "#a29bfe";
+                ctx.strokeStyle = ghostTimer > 0 ? "rgba(162, 155, 254, 0.25)" : "#a29bfe";
                 ctx.lineWidth = 2;
-                ctx.shadowColor = "#6c5ce7";
-                ctx.shadowBlur = 8;
+                ctx.shadowColor = ghostTimer > 0 ? "transparent" : "#6c5ce7";
+                ctx.shadowBlur = ghostTimer > 0 ? 0 : 8;
 
                 ctx.fillRect(p.x, 0, this.w, topY);
                 ctx.strokeRect(p.x, 0, this.w, topY);
@@ -673,6 +700,7 @@
 
                 ctx.shadowBlur = 0;
 
+                // Şakayık Çizimi
                 if (p.hasSakayik && !p.sakayikCollected) {
                     let sakayikX = p.x + (this.w / 2) - 18;
                     let sakayikY = p.y + (this.gap / 2) - 18;
@@ -690,28 +718,74 @@
                     }
                     ctx.restore();
                 }
+
+                // Power-up Çizimi (⚡ 2X, 👻 Hayalet veya ❤️ Kalp)
+                if (p.powerUpType && !p.powerUpCollected) {
+                    let puX = p.x + (this.w / 2) - 16;
+                    let puY = p.y + (this.gap / 2) - 16;
+                    if (p.hasSakayik && !p.sakayikCollected) puY -= 30;
+
+                    ctx.save();
+                    ctx.shadowColor = p.powerUpType === '2X' ? "#f1c40f" : (p.powerUpType === 'GHOST' ? "#00ffff" : "#ff4757");
+                    ctx.shadowBlur = 15;
+                    ctx.fillStyle = p.powerUpType === '2X' ? "#f1c40f" : (p.powerUpType === 'GHOST' ? "#00ffff" : "#ff4757");
+                    ctx.beginPath();
+                    ctx.arc(puX + 16, puY + 16, 18, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = "#0b0410";
+                    ctx.font = "bold 13px 'Segoe UI', Arial";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    
+                    let symbol = "⚡";
+                    if (p.powerUpType === 'GHOST') symbol = "👻";
+                    if (p.powerUpType === 'HEART') symbol = "❤️";
+
+                    ctx.fillText(symbol, puX + 16, puY + 17);
+                    ctx.restore();
+                }
             }
         },
 
         update(factor, dt) {
             if (gameState !== "PLAY") return;
 
+            // Süreleri ve korumaları azalt
+            if (ghostTimer > 0) ghostTimer -= dt;
+            if (doubleScoreTimer > 0) doubleScoreTimer -= dt;
+            if (hitCooldown > 0) hitCooldown -= dt;
+
             pipeTimer += dt;
             if (pipeTimer > this.spawnInterval) {
                 nextSakayikCount--;
-                let spawnThisPipe = false;
+                nextPowerUpCount--;
+
+                let spawnSakayik = false;
+                let powerUpType = null;
 
                 if (nextSakayikCount <= 0) {
-                    spawnThisPipe = true;
+                    spawnSakayik = true;
                     nextSakayikCount = Math.floor(Math.random() * 4) + 3;
+                }
+
+                if (nextPowerUpCount <= 0) {
+                    let rand = Math.random();
+                    if (rand < 0.35) powerUpType = '2X';
+                    else if (rand < 0.70) powerUpType = 'GHOST';
+                    else powerUpType = 'HEART'; // Kalp (Can)
+                    
+                    nextPowerUpCount = Math.floor(Math.random() * 3) + 4;
                 }
 
                 this.position.push({
                     x: canvas.width,
                     y: Math.floor(Math.random() * (canvas.height - 280 - this.gap)) + 50,
                     passed: false,
-                    hasSakayik: spawnThisPipe,
-                    sakayikCollected: false
+                    hasSakayik: spawnSakayik,
+                    sakayikCollected: false,
+                    powerUpType: powerUpType,
+                    powerUpCollected: false
                 });
                 pipeTimer = 0;
             }
@@ -725,12 +799,14 @@
                 let pipeRight = p.x + this.w;
                 let pipeBottomGap = p.y + this.gap;
 
+                // Boru Çarpışma Kontrolü
                 if (birdRight > p.x && bird.x < pipeRight) {
                     if (bird.y < p.y || birdBottom > pipeBottomGap) {
-                        gameOver();
+                        handleDamage();
                     }
                 }
 
+                // Şakayık Toplama Kontrolü
                 if (p.hasSakayik && !p.sakayikCollected) {
                     let sakayikX = p.x + (this.w / 2) - 18;
                     let sakayikY = p.y + (this.gap / 2) - 18;
@@ -742,13 +818,38 @@
                         birdBottom > sakayikY
                     ) {
                         p.sakayikCollected = true;
-                        score++;
+                        let pointsToAdd = doubleScoreTimer > 0 ? 2 : 1;
+                        score += pointsToAdd;
                         updateProgressData(score);
                     }
                 }
 
+                // Power-up Toplama Kontrolü
+                if (p.powerUpType && !p.powerUpCollected) {
+                    let puX = p.x + (this.w / 2) - 16;
+                    let puY = p.y + (this.gap / 2) - 16;
+                    if (p.hasSakayik && !p.sakayikCollected) puY -= 30;
+
+                    if (
+                        bird.x < puX + 32 &&
+                        birdRight > puX &&
+                        bird.y < puY + 32 &&
+                        birdBottom > puY
+                    ) {
+                        p.powerUpCollected = true;
+                        if (p.powerUpType === '2X') {
+                            doubleScoreTimer = 20; // 20 saniye 2x çarpanı
+                        } else if (p.powerUpType === 'GHOST') {
+                            ghostTimer = 20; // 20 saniye görünmezlik (hayalet)
+                        } else if (p.powerUpType === 'HEART') {
+                            if (playerLives < 3) playerLives++; // Canı 1 artır (Max 3)
+                        }
+                    }
+                }
+
                 if (p.x + this.w < bird.x && !p.passed) {
-                    score++;
+                    let pointsToAdd = doubleScoreTimer > 0 ? 2 : 1;
+                    score += pointsToAdd;
                     updateProgressData(score);
                     p.passed = true;
                 }
@@ -764,6 +865,11 @@
             this.position = [];
             pipeTimer = 0;
             nextSakayikCount = Math.floor(Math.random() * 4) + 3;
+            nextPowerUpCount = Math.floor(Math.random() * 4) + 4;
+            ghostTimer = 0;
+            doubleScoreTimer = 0;
+            playerLives = 1; // Her oyuna 1 canla başlanır
+            hitCooldown = 0;
         }
     };
 
@@ -852,11 +958,36 @@
             ctx.fillStyle = "#a6b0c3";
             ctx.fillText("Yeniden Başlamak İçin Boşluk / Tıkla", canvas.width / 2, canvas.height / 2 + 40);
         } else if (gameState === "PLAY") {
+            // Skor
             ctx.shadowColor = "#9b59b6";
             ctx.shadowBlur = 12;
             ctx.font = "bold 44px 'Segoe UI', Arial";
             ctx.fillText(score, canvas.width / 2, 70);
             ctx.shadowBlur = 0;
+
+            // Canları Göster (Kalpler ❤️)
+            let heartsText = "";
+            for (let i = 0; i < playerLives; i++) heartsText += "❤️ ";
+            ctx.font = "18px 'Segoe UI', Arial";
+            ctx.textAlign = "left";
+            ctx.fillStyle = "#ff4757";
+            ctx.fillText(heartsText, 20, 35);
+
+            // Aktif Power-up Sürelerini Göster
+            let activePowerUpsText = [];
+            if (ghostTimer > 0) activePowerUpsText.push(`👻 Hayalet: ${Math.ceil(ghostTimer)}s`);
+            if (doubleScoreTimer > 0) activePowerUpsText.push(`⚡ 2X Puan: ${Math.ceil(doubleScoreTimer)}s`);
+
+            if (activePowerUpsText.length > 0) {
+                ctx.font = "bold 14px 'Segoe UI', Arial";
+                ctx.textAlign = "left";
+                let startX = 20;
+                let startY = 65;
+                activePowerUpsText.forEach((txt, idx) => {
+                    ctx.fillStyle = idx === 0 ? "#00ffff" : "#f1c40f";
+                    ctx.fillText(txt, startX, startY + (idx * 20));
+                });
+            }
         }
     }
 
