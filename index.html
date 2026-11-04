@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Firebase Leaderboard</title>
+    <title>Flappy Bird - Ranked Leaderboard</title>
     <style>
         * {
             box-sizing: border-box;
@@ -39,7 +39,7 @@
         }
         /* Liderlik Tablosu Paneli */
         #leaderboard {
-            width: 220px;
+            width: 250px;
             background: rgba(22, 8, 38, 0.85);
             border: 2px solid rgba(186, 85, 211, 0.3);
             border-radius: 16px;
@@ -60,23 +60,38 @@
         .lb-item {
             display: flex;
             justify-content: space-between;
-            font-size: 14px;
-            padding: 6px 0;
+            align-items: center;
+            font-size: 13px;
+            padding: 7px 0;
             border-bottom: 1px solid rgba(255,255,255,0.05);
         }
         .lb-item:last-child {
             border-bottom: none;
         }
+        .lb-left {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            max-width: 130px;
+        }
         .lb-nick {
             color: #f3a683;
+            font-weight: bold;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            max-width: 130px;
+        }
+        .lb-rank {
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .lb-score-box {
+            text-align: right;
         }
         .lb-score {
             font-weight: bold;
             color: #68d391;
+            font-size: 14px;
         }
 
         /* Nick Giriş Overlay Ekranı */
@@ -178,6 +193,18 @@
     let playerNick = "Oyuncu";
     let topScores = [];
 
+    // Elo Hesaplama Fonksiyonu
+    function getRankInfo(s) {
+        if (s < 20)  return { name: "DEMİR", color: "#95a5a6" };
+        if (s < 40)  return { name: "BRONZ", color: "#d35400" };
+        if (s < 60)  return { name: "GÜMÜŞ", color: "#bdc3c7" };
+        if (s < 80)  return { name: "ALTIN", color: "#f1c40f" };
+        if (s < 100) return { name: "PLATİN", color: "#1abc9c" };
+        if (s < 120) return { name: "ELMAS", color: "#3498db" };
+        if (s < 140) return { name: "ZÜMRÜT", color: "#2ecc71" };
+        return { name: "EFSANEVİ", color: "#9b59b6" };
+    }
+
     async function fetchLeaderboard() {
         try {
             const scoresRef = query(ref(db, 'scores'), orderByChild('score'), limitToLast(5));
@@ -203,9 +230,18 @@
         }
         let html = "";
         topScores.forEach((item, index) => {
+            let rank = getRankInfo(item.score);
+            let isLegendary = item.score >= 140;
+            let crownIcon = isLegendary ? "👑 " : "";
+
             html += `<div class="lb-item">
-                        <span class="lb-nick">${index + 1}. ${item.nick}</span>
-                        <span class="lb-score">${item.score}</span>
+                        <div class="lb-left">
+                            <span class="lb-nick">${index + 1}. ${crownIcon}${item.nick}</span>
+                            <span class="lb-rank" style="color: ${rank.color};">${rank.name}</span>
+                        </div>
+                        <div class="lb-score-box">
+                            <span class="lb-score">${item.score}</span>
+                        </div>
                      </div>`;
         });
         lbList.innerHTML = html;
@@ -254,8 +290,8 @@
         y: 200,
         w: 36,
         h: 36,
-        gravity: 0.35,    
-        jump: 7.5,        
+        gravity: 0.38,    
+        jump: 8.0,        
         velocity: 0,
         
         draw() {
@@ -298,7 +334,7 @@
         update(factor) {
             if (gameState === "PLAY") {
                 this.velocity += this.gravity * factor;
-                if (this.velocity > 9.0) this.velocity = 9.0;
+                if (this.velocity > 10.0) this.velocity = 10.0;
                 this.y += this.velocity * factor;
 
                 if (this.y + this.h >= canvas.height - 50) {
@@ -330,6 +366,7 @@
         w: 72,
         gap: 175,         
         dx: 3.2,          
+        spawnInterval: 1.15, 
 
         draw() {
             for (let i = 0; i < this.position.length; i++) {
@@ -366,7 +403,7 @@
             if (gameState !== "PLAY") return;
 
             pipeTimer += dt;
-            if (pipeTimer > 2.0) {
+            if (pipeTimer > this.spawnInterval) {
                 this.position.push({
                     x: canvas.width,
                     y: Math.floor(Math.random() * (canvas.height - 280 - this.gap)) + 50,
@@ -460,23 +497,35 @@
             ctx.shadowBlur = 15;
             ctx.font = "bold 34px 'Segoe UI', Arial";
             ctx.fillStyle = "#ff7675";
-            ctx.fillText("OYUN BİTTİ", canvas.width / 2, canvas.height / 2 - 40);
+            ctx.fillText("OYUN BİTTİ", canvas.width / 2, canvas.height / 2 - 50);
+
+            let rank = getRankInfo(score);
+            ctx.shadowColor = rank.color;
+            ctx.font = "bold 20px 'Segoe UI', Arial";
+            ctx.fillStyle = rank.color;
+            ctx.fillText("Elo: " + rank.name, canvas.width / 2, canvas.height / 2 - 10);
 
             ctx.shadowColor = "#8e44ad";
-            ctx.shadowBlur = 10;
-            ctx.font = "bold 26px 'Segoe UI', Arial";
+            ctx.font = "bold 24px 'Segoe UI', Arial";
             ctx.fillStyle = "#FFF";
-            ctx.fillText("Skor: " + score, canvas.width / 2, canvas.height / 2 + 10);
+            ctx.fillText("Skor: " + score, canvas.width / 2, canvas.height / 2 + 30);
 
             ctx.shadowBlur = 0;
             ctx.font = "16px 'Segoe UI', Arial";
             ctx.fillStyle = "#a6b0c3";
-            ctx.fillText("Yeniden Başlamak İçin Tıkla", canvas.width / 2, canvas.height / 2 + 55);
+            ctx.fillText("Yeniden Başlamak İçin Tıkla", canvas.width / 2, canvas.height / 2 + 70);
         } else if (gameState === "PLAY") {
             ctx.shadowColor = "#9b59b6";
             ctx.shadowBlur = 12;
-            ctx.font = "bold 44px 'Segoe UI', Arial";
-            ctx.fillText(score, canvas.width / 2, 70);
+            ctx.font = "bold 40px 'Segoe UI', Arial";
+            ctx.fillText(score, canvas.width / 2, 60);
+
+            let rank = getRankInfo(score);
+            ctx.shadowColor = rank.color;
+            ctx.font = "bold 15px 'Segoe UI', Arial";
+            ctx.fillStyle = rank.color;
+            ctx.fillText(rank.name, canvas.width / 2, 90);
+
             ctx.shadowBlur = 0;
         }
     }
@@ -530,17 +579,13 @@
         gameState = "START"; 
     });
 
-    // --- DELTA TIME DÖNGÜSÜ ---
     let lastTime = performance.now();
 
     function loop(currentTime) {
         let dt = (currentTime - lastTime) / 1000;
         lastTime = currentTime;
 
-        // Sekme arka plana atıldığında oyunun uçmasını engellemek için sınır
         if (dt > 0.1) dt = 0.1;
-
-        // 60 FPS baz alınarak hesaplanan çarpan
         let factor = dt * 60;
 
         elapsedTime += dt;
