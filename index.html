@@ -37,9 +37,18 @@
             display: block;
             border-radius: 14px;
         }
+
+        /* Sağ Taraf Taşıyıcısı (Skor Tablosu + Altındaki Mağaza Butonu) */
+        #sidebar-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 250px;
+        }
+
         /* Liderlik Tablosu Paneli */
         #leaderboard {
-            width: 250px;
+            width: 100%;
             background: rgba(22, 8, 38, 0.85);
             border: 2px solid rgba(186, 85, 211, 0.3);
             border-radius: 16px;
@@ -92,6 +101,27 @@
             font-weight: bold;
             color: #68d391;
             font-size: 14px;
+        }
+
+        /* Skor Tablosunun Altındaki Mağaza Butonu */
+        #sidebar-shop-btn {
+            width: 100%;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #3498db, #2ecc71);
+            color: white;
+            border: 2px solid rgba(186, 85, 211, 0.3);
+            border-radius: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 0 20px rgba(52, 152, 219, 0.3);
+            display: none;
+            text-align: center;
+        }
+        #sidebar-shop-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 25px rgba(46, 204, 113, 0.5);
         }
 
         /* Ortak Ekran Stilleri */
@@ -228,10 +258,13 @@
         <canvas id="canvas" width="460" height="640"></canvas>
     </div>
 
-    <!-- Sağ tarafta canlı rekorlar listesi -->
-    <div id="leaderboard">
-        <h3>🏆 En İyi 5 Rekor</h3>
-        <div id="lb-list">Yükleniyor...</div>
+    <!-- Sağ Taraf: Skor Tablosu + Altında Mağaza Butonu -->
+    <div id="sidebar-container">
+        <div id="leaderboard">
+            <h3>🏆 En İyi 5 Rekor</h3>
+            <div id="lb-list">Yükleniyor...</div>
+        </div>
+        <button id="sidebar-shop-btn">🛒 Mağaza</button>
     </div>
 </div>
 
@@ -259,6 +292,7 @@
     let unlockedSkins = ["default"];
     let currentSkin = "default";
     let topScores = [];
+    let returningFromShop = false;
 
     const skins = [
         { id: "default", name: "Mor Kuş", price: 0, color: "#e056fd" },
@@ -266,7 +300,6 @@
         { id: "fire", name: "Alev Kuş", price: 50, color: "#e74c3c" }
     ];
 
-    // Giriş / Kayıt İşlemi
     document.getElementById("login-btn").addEventListener("click", () => {
         const nick = document.getElementById("nick-input").value.trim();
         const pass = document.getElementById("pass-input").value.trim();
@@ -280,7 +313,6 @@
         let savedAccounts = JSON.parse(localStorage.getItem("flappy_accounts") || "{}");
 
         if (savedAccounts[nick]) {
-            // Hesap varsa şifre kontrolü yap
             if (savedAccounts[nick].pass === pass) {
                 playerNick = nick;
                 totalCoins = savedAccounts[nick].coins;
@@ -291,7 +323,6 @@
                 errBox.innerText = "Şifre yanlış!";
             }
         } else {
-            // Hesap yoksa yeni oluştur (Kayıt ol)
             savedAccounts[nick] = { pass: pass, coins: 0, unlocked: ["default"], skin: "default" };
             localStorage.setItem("flappy_accounts", JSON.stringify(savedAccounts));
             playerNick = nick;
@@ -329,6 +360,7 @@
     document.getElementById("start-game-btn").addEventListener("click", () => {
         document.getElementById("menu-screen").style.display = "none";
         document.getElementById("leaderboard").style.display = "block";
+        document.getElementById("sidebar-shop-btn").style.display = "block";
         fetchLeaderboard();
         gameState = "START";
     });
@@ -375,14 +407,29 @@
     }
 
     document.getElementById("open-shop-btn").addEventListener("click", () => {
+        returningFromShop = false;
         updateShopUI();
         document.getElementById("menu-screen").style.display = "none";
         document.getElementById("shop-screen").style.display = "flex";
     });
 
+    // Skor tablosunun altındaki mağaza butonuna tıklandığında
+    document.getElementById("sidebar-shop-btn").addEventListener("click", () => {
+        returningFromShop = (gameState === "GAMEOVER" || gameState === "PLAY" || gameState === "START");
+        updateShopUI();
+        document.getElementById("leaderboard").style.display = "none";
+        document.getElementById("sidebar-shop-btn").style.display = "none";
+        document.getElementById("shop-screen").style.display = "flex";
+    });
+
     document.getElementById("close-shop-btn").addEventListener("click", () => {
         document.getElementById("shop-screen").style.display = "none";
-        document.getElementById("menu-screen").style.display = "flex";
+        if (returningFromShop) {
+            document.getElementById("leaderboard").style.display = "block";
+            document.getElementById("sidebar-shop-btn").style.display = "block";
+        } else {
+            document.getElementById("menu-screen").style.display = "flex";
+        }
     });
 
     function getRankIcon(s) {
@@ -466,7 +513,7 @@
     }
 
     let score = 0;
-    let gameState = "WAITING_NICK"; 
+    let gameState = "WAITING_LOGIN"; 
     let scoreSaved = false;
     let elapsedTime = 0;
     let pipeTimer = 0;
@@ -692,12 +739,12 @@
             ctx.shadowBlur = 10;
             ctx.font = "bold 26px 'Segoe UI', Arial";
             ctx.fillStyle = "#FFF";
-            ctx.fillText(icon + " Skor: " + score, canvas.width / 2, canvas.height / 2 + 10);
+            ctx.fillText(icon + " Skor: " + score, canvas.width / 2, canvas.height / 2 - 5);
 
             ctx.shadowBlur = 0;
-            ctx.font = "16px 'Segoe UI', Arial";
+            ctx.font = "15px 'Segoe UI', Arial";
             ctx.fillStyle = "#a6b0c3";
-            ctx.fillText("Yeniden Başlamak İçin Tıkla", canvas.width / 2, canvas.height / 2 + 55);
+            ctx.fillText("Yeniden Başlamak İçin Boşluk / Tıkla", canvas.width / 2, canvas.height / 2 + 40);
         } else if (gameState === "PLAY") {
             ctx.shadowColor = "#9b59b6";
             ctx.shadowBlur = 12;
@@ -711,7 +758,6 @@
         if (gameState !== "GAMEOVER") {
             gameState = "GAMEOVER";
             
-            // Kazanılan puanları hesaba ekle ve kaydet
             totalCoins += score;
             saveAccountData();
 
@@ -744,10 +790,13 @@
     }
 
     document.addEventListener("keydown", (e) => {
-        if (e.code === "Space" && gameState !== "WAITING_NICK") handleAction();
+        if (e.code === "Space" && gameState !== "WAITING_LOGIN") {
+            handleAction();
+        }
     });
+
     canvas.addEventListener("click", () => {
-        if (gameState !== "WAITING_NICK") handleAction();
+        if (gameState !== "WAITING_LOGIN") handleAction();
     });
 
     let lastTime = performance.now();
