@@ -161,7 +161,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, push, set, get, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // 🔥 BURAYA KENDİ FIREBASE BİLGİLERİNİ YAPIŞTIRMALISIN 🔥
     const firebaseConfig = {
         apiKey: "SENIN_API_KEY",
         authDomain: "SENIN_PROJE.firebaseapp.com",
@@ -191,6 +190,7 @@
             updateLeaderboardUI();
         } catch (e) {
             console.log("Firebase skor çekme hatası:", e);
+            document.getElementById("lb-list").innerHTML = "<div style='text-align:center; color:#a6b0c3; font-size:13px;'>Bağlantı Bekleniyor</div>";
         }
     }
 
@@ -244,7 +244,7 @@
 
     let frames = 0;
     let score = 0;
-    let gameState = "START"; 
+    let gameState = "WAITING_NICK"; // Başlangıçta nick ekranının kapanması bekleniyor
     let scoreSaved = false;
 
     const bird = {
@@ -508,10 +508,10 @@
     }
 
     document.addEventListener("keydown", (e) => {
-        if (e.code === "Space" && gameState !== "START") handleAction();
+        if (e.code === "Space" && gameState !== "WAITING_NICK") handleAction();
     });
     canvas.addEventListener("click", () => {
-        if (gameState !== "START") handleAction();
+        if (gameState !== "WAITING_NICK") handleAction();
     });
 
     // Nick Ekranı Buton İşlevi
@@ -523,7 +523,7 @@
         document.getElementById("nick-screen").style.display = "none";
         document.getElementById("leaderboard").style.display = "block";
         fetchLeaderboard();
-        gameState = "START";
+        gameState = "START"; // Oyun artık tıklamaya hazır duruma geçiyor
     });
 
     function loop() {
