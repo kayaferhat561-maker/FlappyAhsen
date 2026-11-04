@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Ranked Leaderboard</title>
+    <title>Flappy Bird - Shop & Leaderboard</title>
     <style>
         * {
             box-sizing: border-box;
@@ -94,8 +94,8 @@
             font-size: 14px;
         }
 
-        /* Nick Giriş Overlay Ekranı */
-        #nick-screen {
+        /* Ortak Overlay / Menü Stilleri */
+        .screen {
             position: absolute;
             top: 0;
             left: 0;
@@ -111,7 +111,7 @@
             color: #fff;
             padding: 20px;
         }
-        #nick-screen h2 {
+        .screen h2 {
             color: #d8b4fe;
             margin-bottom: 15px;
             text-shadow: 0 0 10px rgba(224, 86, 253, 0.5);
@@ -133,9 +133,9 @@
             border-color: #e056fd;
             box-shadow: 0 0 10px rgba(224, 86, 253, 0.5);
         }
-        #start-btn {
+        .menu-btn {
             padding: 10px 25px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
             background: linear-gradient(135deg, #a855f7, #68d391);
             color: white;
@@ -144,20 +144,70 @@
             cursor: pointer;
             transition: 0.2s;
             box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+            margin: 5px;
+            width: 180px;
         }
-        #start-btn:hover {
+        .menu-btn:hover {
             transform: scale(1.05);
             box-shadow: 0 0 20px rgba(168, 85, 247, 0.7);
+        }
+
+        /* Mağaza Paneli */
+        #shop-screen {
+            display: none;
+        }
+        .shop-items {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .skin-card {
+            background: #1e0b36;
+            border: 2px solid #481380;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            width: 90px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .skin-card.selected {
+            border-color: #68d391;
+            box-shadow: 0 0 10px rgba(104, 211, 145, 0.5);
+        }
+        .skin-preview {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin: 0 auto 8px auto;
+        }
+        #player-coins {
+            color: #f1c40f;
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 15px;
         }
     </style>
 </head>
 <body>
 
 <div id="game-wrapper">
-    <div id="nick-screen">
+    <!-- Giriş Ekranı -->
+    <div id="nick-screen" class="screen">
         <h2>FLAPPY BIRD</h2>
         <input type="text" id="nick-input" placeholder="Nickini Yaz..." maxlength="12" autocomplete="off">
-        <button id="start-btn">Oyuna Başla</button>
+        <button id="start-btn" class="menu-btn">Oyuna Başla</button>
+        <button id="open-shop-btn" class="menu-btn" style="background: linear-gradient(135deg, #3498db, #2ecc71);">Mağaza 🛒</button>
+    </div>
+
+    <!-- Mağaza Ekranı -->
+    <div id="shop-screen" class="screen">
+        <h2>MAĞAZA</h2>
+        <div id="player-coins">💰 Puanın: <span id="coin-val">0</span></div>
+        <div class="shop-items" id="shop-items-container">
+            <!-- JavaScript ile doldurulacak -->
+        </div>
+        <button id="close-shop-btn" class="menu-btn">Geri Dön</button>
     </div>
     
     <div id="game-container">
@@ -193,14 +243,78 @@
     let playerNick = "Oyuncu";
     let topScores = [];
 
-    // 40'ar 40'ar artan kademe / simge sistemi
+    // Mağaza & Puan Sistemi (LocalStorage)
+    let totalCoins = parseInt(localStorage.getItem("flappy_coins") || "0");
+    let unlockedSkins = JSON.parse(localStorage.getItem("flappy_unlocked") || '["default"]');
+    let currentSkin = localStorage.getItem("flappy_current_skin") || "default";
+
+    const skins = [
+        { id: "default", name: "Mor Kuş", price: 0, color: "#e056fd" },
+        { id: "gold", name: "Altın Kuş", price: 25, color: "#f1c40f" },
+        { id: "fire", name: "Alev Kuş", price: 50, color: "#e74c3c" }
+    ];
+
+    function updateShopUI() {
+        document.getElementById("coin-val").innerText = totalCoins;
+        const container = document.getElementById("shop-items-container");
+        container.innerHTML = "";
+
+        skins.forEach(skin => {
+            let isUnlocked = unlockedSkins.includes(skin.id);
+            let isSelected = currentSkin === skin.id;
+
+            let card = document.createElement("div");
+            card.className = `skin-card ${isSelected ? "selected" : ""}`;
+            card.innerHTML = `
+                <div class="skin-preview" style="background: ${skin.color};"></div>
+                <div style="font-size: 12px; font-weight:bold; margin-bottom:5px;">${skin.name}</div>
+                <div style="font-size: 11px; color: ${isUnlocked ? '#68d391' : '#f1c40f'};">
+                    ${isSelected ? "Seçili" : (isUnlocked ? "Seç" : skin.price + " Puan")}
+                </div>
+            `;
+
+            card.addEventListener("click", () => {
+                if (isUnlocked) {
+                    currentSkin = skin.id;
+                    localStorage.setItem("flappy_current_skin", currentSkin);
+                    updateShopUI();
+                } else {
+                    if (totalCoins >= skin.price) {
+                        totalCoins -= skin.price;
+                        localStorage.setItem("flappy_coins", totalCoins);
+                        unlockedSkins.push(skin.id);
+                        localStorage.setItem("flappy_unlocked", JSON.stringify(unlockedSkins));
+                        currentSkin = skin.id;
+                        localStorage.setItem("flappy_current_skin", currentSkin);
+                        updateShopUI();
+                    } else {
+                        alert("Yeterli puanın yok!");
+                    }
+                }
+            });
+            container.appendChild(card);
+        });
+    }
+
+    // Menü Butonları
+    document.getElementById("open-shop-btn").addEventListener("click", () => {
+        updateShopUI();
+        document.getElementById("nick-screen").style.display = "none";
+        document.getElementById("shop-screen").style.display = "flex";
+    });
+
+    document.getElementById("close-shop-btn").addEventListener("click", () => {
+        document.getElementById("shop-screen").style.display = "none";
+        document.getElementById("nick-screen").style.display = "flex";
+    });
+
     function getRankIcon(s) {
-        if (s < 40)  return "🧱"; // 0 - 40
-        if (s < 80)  return "🥉"; // 40 - 80
-        if (s < 120) return "🥈"; // 80 - 120
-        if (s < 160) return "🥇"; // 120 - 160
-        if (s < 200) return "💎"; // 160 - 200
-        return "👑";               // 200+ (Efsanevi)
+        if (s < 40)  return "🧱";
+        if (s < 80)  return "🥉";
+        if (s < 120) return "🥈";
+        if (s < 160) return "🥇";
+        if (s < 200) return "💎";
+        return "👑";
     }
 
     async function fetchLeaderboard() {
@@ -229,7 +343,6 @@
         let html = "";
         topScores.forEach((item, index) => {
             let icon = getRankIcon(item.score);
-
             html += `<div class="lb-item">
                         <div class="lb-left">
                             <span class="lb-icon">${icon}</span>
@@ -296,10 +409,13 @@
             let angle = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (this.velocity / 12)));
             ctx.rotate(angle);
 
+            // Seçilen Skine göre renk belirleme
+            let activeSkinObj = skins.find(s => s.id === currentSkin) || skins[0];
+
             ctx.save();
-            ctx.shadowColor = "#e056fd";
+            ctx.shadowColor = activeSkinObj.color;
             ctx.shadowBlur = 14;
-            ctx.fillStyle = "rgba(224, 86, 253, 0.5)";
+            ctx.fillStyle = activeSkinObj.color;
             ctx.beginPath();
             ctx.arc(0, 0, this.w / 2 + 1, 0, Math.PI * 2);
             ctx.fill();
@@ -309,10 +425,10 @@
             ctx.arc(0, 0, this.w / 2, 0, Math.PI * 2);
             ctx.clip();
 
-            if (birdImg.complete && birdImg.naturalWidth !== 0) {
+            if (birdImg.complete && birdImg.naturalWidth !== 0 && currentSkin === "default") {
                 ctx.drawImage(birdImg, -this.w / 2, -this.h / 2, this.w, this.h);
             } else {
-                ctx.fillStyle = "#e056fd";
+                ctx.fillStyle = activeSkinObj.color;
                 ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
             }
             ctx.restore();
@@ -493,7 +609,7 @@
             ctx.shadowBlur = 15;
             ctx.font = "bold 34px 'Segoe UI', Arial";
             ctx.fillStyle = "#ff7675";
-            ctx.fillText("OYUN BİTTİ", canvas.width / 2, canvas.height / 2 - 40);
+            ctx.fillText("OYUN BİTTİ", canvas.width / 2, canvas.height / 2 - 50);
 
             let icon = getRankIcon(score);
             ctx.shadowColor = "#f1c40f";
@@ -518,6 +634,11 @@
     function gameOver() {
         if (gameState !== "GAMEOVER") {
             gameState = "GAMEOVER";
+            
+            // Kazanılan puanları cüzdana ekle ve kaydet
+            totalCoins += score;
+            localStorage.setItem("flappy_coins", totalCoins);
+
             if (!scoreSaved) {
                 scoreSaved = true;
                 saveScoreToFirebase(playerNick, score);
