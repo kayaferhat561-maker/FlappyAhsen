@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Secure Account & Shop</title>
+    <title>Flappy Bird - Ranked & Progress Bar</title>
     <style>
         * {
             box-sizing: border-box;
@@ -38,7 +38,7 @@
             border-radius: 14px;
         }
 
-        /* Sağ Taraf Taşıyıcısı (Skor Tablosu + Altındaki Mağaza Butonu) */
+        /* Sağ Taraf Taşıyıcısı (Skor Tablosu + İlerleme Barı + Mağaza) */
         #sidebar-container {
             display: flex;
             flex-direction: column;
@@ -103,7 +103,43 @@
             font-size: 14px;
         }
 
-        /* Skor Tablosunun Altındaki Mağaza Butonu */
+        /* İlerleme Çubuğu (Process Bar) Paneli */
+        #progress-panel {
+            width: 100%;
+            background: rgba(22, 8, 38, 0.85);
+            border: 2px solid rgba(186, 85, 211, 0.3);
+            border-radius: 16px;
+            padding: 12px 15px;
+            color: #fff;
+            box-shadow: 0 0 25px rgba(138, 43, 226, 0.3);
+            display: none;
+        }
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .progress-bar-bg {
+            width: 100%;
+            height: 12px;
+            background: #1e0b36;
+            border-radius: 6px;
+            border: 1px solid rgba(186, 85, 211, 0.3);
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
+            box-shadow: 0 0 10px rgba(46, 204, 113, 0.6);
+            border-radius: 6px;
+            transition: width 0.2s ease-out;
+        }
+
+        /* Mağaza Butonu */
         #sidebar-shop-btn {
             width: 100%;
             padding: 12px;
@@ -258,12 +294,24 @@
         <canvas id="canvas" width="460" height="640"></canvas>
     </div>
 
-    <!-- Sağ Taraf: Skor Tablosu + Altında Mağaza Butonu -->
+    <!-- Sağ Taraf: Skor Tablosu + İlerleme Barı + Mağaza Butonu -->
     <div id="sidebar-container">
         <div id="leaderboard">
             <h3>🏆 En İyi 5 Rekor</h3>
             <div id="lb-list">Yükleniyor...</div>
         </div>
+        
+        <!-- İlerleme Çubuğu (Process Bar) -->
+        <div id="progress-panel">
+            <div class="progress-header">
+                <span id="current-rank-icon">🧱</span>
+                <span id="next-rank-icon" style="color: #a6b0c3;">🥉</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div id="progress-fill" class="progress-bar-fill"></div>
+            </div>
+        </div>
+
         <button id="sidebar-shop-btn">🛒 Mağaza</button>
     </div>
 </div>
@@ -299,6 +347,49 @@
         { id: "gold", name: "Altın Kuş", price: 25, color: "#f1c40f" },
         { id: "fire", name: "Alev Kuş", price: 50, color: "#e74c3c" }
     ];
+
+    const ranks = [
+        { limit: 40, icon: "🧱" },
+        { limit: 80, icon: "🥉" },
+        { limit: 120, icon: "🥈" },
+        { limit: 160, icon: "🥇" },
+        { limit: 200, icon: "💎" },
+        { limit: 999, icon: "👑" }
+    ];
+
+    function updateProgressBar(currentScore) {
+        let currentRank = ranks[0];
+        let prevLimit = 0;
+
+        for (let i = 0; i < ranks.length; i++) {
+            if (currentScore < ranks[i].limit) {
+                currentRank = ranks[i];
+                prevLimit = i === 0 ? 0 : ranks[i - 1].limit;
+                break;
+            }
+        }
+
+        // Eğer efsanevi (200+) seviyesindeyse bar direkt full olsun
+        let percent = 100;
+        if (currentScore < 200) {
+            let span = currentRank.limit - prevLimit;
+            let progress = currentScore - prevLimit;
+            percent = Math.min(100, Math.max(0, (progress / span) * 100));
+        }
+
+        document.getElementById("current-rank-icon").innerText = currentRank.icon;
+        
+        // Sonraki rank ikonunu bul
+        let nextIcon = "👑";
+        for (let i = 0; i < ranks.length; i++) {
+            if (ranks[i].limit > currentScore) {
+                nextIcon = ranks[i].icon;
+                break;
+            }
+        }
+        document.getElementById("next-rank-icon").innerText = nextIcon;
+        document.getElementById("progress-fill").style.width = percent + "%";
+    }
 
     document.getElementById("login-btn").addEventListener("click", () => {
         const nick = document.getElementById("nick-input").value.trim();
@@ -360,8 +451,10 @@
     document.getElementById("start-game-btn").addEventListener("click", () => {
         document.getElementById("menu-screen").style.display = "none";
         document.getElementById("leaderboard").style.display = "block";
+        document.getElementById("progress-panel").style.display = "block";
         document.getElementById("sidebar-shop-btn").style.display = "block";
         fetchLeaderboard();
+        updateProgressBar(0);
         gameState = "START";
     });
 
@@ -413,11 +506,11 @@
         document.getElementById("shop-screen").style.display = "flex";
     });
 
-    // Skor tablosunun altındaki mağaza butonuna tıklandığında
     document.getElementById("sidebar-shop-btn").addEventListener("click", () => {
         returningFromShop = (gameState === "GAMEOVER" || gameState === "PLAY" || gameState === "START");
         updateShopUI();
         document.getElementById("leaderboard").style.display = "none";
+        document.getElementById("progress-panel").style.display = "none";
         document.getElementById("sidebar-shop-btn").style.display = "none";
         document.getElementById("shop-screen").style.display = "flex";
     });
@@ -426,6 +519,7 @@
         document.getElementById("shop-screen").style.display = "none";
         if (returningFromShop) {
             document.getElementById("leaderboard").style.display = "block";
+            document.getElementById("progress-panel").style.display = "block";
             document.getElementById("sidebar-shop-btn").style.display = "block";
         } else {
             document.getElementById("menu-screen").style.display = "flex";
@@ -664,6 +758,7 @@
 
                 if (p.x + this.w < bird.x && !p.passed) {
                     score++;
+                    updateProgressBar(score); // Her skor alındığında barı güncelle
                     p.passed = true;
                 }
 
@@ -774,6 +869,7 @@
         score = 0;
         scoreSaved = false;
         pipeTimer = 0;
+        updateProgressBar(0); // Oyuna yeniden başlarken barı sıfırla
         gameState = "PLAY";
         bird.flap();
     }
