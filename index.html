@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Perfect Power-ups & Ranked</title>
+    <title>Flappy Bird - Centered & Rare Power-ups</title>
     <style>
         * {
             box-sizing: border-box;
@@ -562,10 +562,6 @@
     let elapsedTime = 0;
     let pipeTimer = 0;
     let nextSakayikCount = Math.floor(Math.random() * 4) + 3;
-    let freePowerUpTimer = 0; 
-
-    // Serbest boşluk güçlendiricileri (Görselde işaretlediğin boru aralarındaki boşluklarda çok nadir belirir)
-    let floatingPowerUps = [];
 
     const bird = {
         x: 70,
@@ -692,7 +688,7 @@
 
                 ctx.shadowBlur = 0;
 
-                // Şakayık Çizimi
+                // Şakayık Çizimi (Tam Orada)
                 if (p.hasSakayik && !p.sakayikCollected) {
                     let sakayikX = p.x + (this.w / 2) - 18;
                     let sakayikY = p.y + (this.gap / 2) - 18;
@@ -710,18 +706,22 @@
                     }
                     ctx.restore();
                 }
-            }
 
-            // Boru aralarındaki boşluklarda gezen nadir güçlendiriciler (Sadece toplanmamışsa çizilir)
-            for (let i = 0; i < floatingPowerUps.length; i++) {
-                let fpu = floatingPowerUps[i];
-                if (!fpu.collected) {
+                // Power-up Çizimi (Şakayık ile aynı mantıkta, boru aralığının tam ortasında ama çok daha nadir)
+                if (p.hasPowerUp && !p.powerUpCollected) {
+                    let puX = p.x + (this.w / 2) - 18;
+                    let puY = p.y + (this.gap / 2) - 18;
+                    // Eğer aynı boruda şakayık da varsa üst üste binmesin diye hafifçe kaydıralım
+                    if (p.hasSakayik && !p.sakayikCollected) {
+                        puY -= 35;
+                    }
+
                     ctx.save();
-                    ctx.shadowColor = fpu.type === '2X' ? "#f1c40f" : "#ff4757";
+                    ctx.shadowColor = p.powerUpType === '2X' ? "#f1c40f" : "#ff4757";
                     ctx.shadowBlur = 15;
-                    ctx.fillStyle = fpu.type === '2X' ? "#f1c40f" : "#ff4757";
+                    ctx.fillStyle = p.powerUpType === '2X' ? "#f1c40f" : "#ff4757";
                     ctx.beginPath();
-                    ctx.arc(fpu.x + 16, fpu.y + 16, 18, 0, Math.PI * 2);
+                    ctx.arc(puX + 18, puY + 18, 18, 0, Math.PI * 2);
                     ctx.fill();
 
                     ctx.fillStyle = "#0b0410";
@@ -729,8 +729,8 @@
                     ctx.textAlign = "center";
                     ctx.textBaseline = "middle";
                     
-                    let symbol = fpu.type === '2X' ? "⚡" : "❤️";
-                    ctx.fillText(symbol, fpu.x + 16, fpu.y + 17);
+                    let symbol = p.powerUpType === '2X' ? "⚡" : "❤️";
+                    ctx.fillText(symbol, puX + 18, puY + 19);
                     ctx.restore();
                 }
             }
@@ -742,50 +742,6 @@
             if (doubleScoreTimer > 0) doubleScoreTimer -= dt;
             if (hitCooldown > 0) hitCooldown -= dt;
 
-            // Çok Nadir Serbest Güçlendirici Üretme Mantığı (Boruların arasındaki boşluk alanlarında)
-            freePowerUpTimer += dt;
-            if (freePowerUpTimer > 15.0) { // Yaklaşık 15 saniyede bir nadir şans
-                freePowerUpTimer = 0;
-                if (Math.random() < 0.45) {
-                    let puType = Math.random() < 0.5 ? '2X' : 'HEART';
-                    floatingPowerUps.push({
-                        x: canvas.width,
-                        y: Math.floor(Math.random() * (canvas.height - 260)) + 80, // Ekranın güvenli orta yüksekliklerinde
-                        type: puType,
-                        collected: false
-                    });
-                }
-            }
-
-            let birdRight = bird.x + bird.w;
-            let birdBottom = bird.y + bird.h;
-
-            for (let i = 0; i < floatingPowerUps.length; i++) {
-                let fpu = floatingPowerUps[i];
-                fpu.x -= this.dx * factor;
-
-                if (!fpu.collected) {
-                    if (
-                        bird.x < fpu.x + 32 &&
-                        birdRight > fpu.x &&
-                        bird.y < fpu.y + 32 &&
-                        birdBottom > fpu.y
-                    ) {
-                        fpu.collected = true; // Toplandığı an bir daha görünmeyecek şekilde işaretlenir
-                        if (fpu.type === '2X') {
-                            doubleScoreTimer = 20; 
-                        } else if (fpu.type === 'HEART') {
-                            if (playerLives < 3) playerLives++; 
-                        }
-                    }
-                }
-
-                if (fpu.x + 32 < 0) {
-                    floatingPowerUps.splice(i, 1);
-                    i--;
-                }
-            }
-
             pipeTimer += dt;
             if (pipeTimer > this.spawnInterval) {
                 nextSakayikCount--;
@@ -796,6 +752,14 @@
                     nextSakayikCount = Math.floor(Math.random() * 4) + 3;
                 }
 
+                // Çok Nadir Power-up Şansı (Her boruda değil, yaklaşık %15 - %20 ihtimalle şakayık mantığıyla tam ortada çıkar)
+                let spawnPowerUp = false;
+                let powerUpType = null;
+                if (!spawnSakayik && Math.random() < 0.20) {
+                    spawnPowerUp = true;
+                    powerUpType = Math.random() < 0.5 ? '2X' : 'HEART';
+                }
+
                 let pipeY = Math.floor(Math.random() * (canvas.height - 280 - this.gap)) + 50;
 
                 this.position.push({
@@ -803,10 +767,16 @@
                     y: pipeY,
                     passed: false,
                     hasSakayik: spawnSakayik,
-                    sakayikCollected: false
+                    sakayikCollected: false,
+                    hasPowerUp: spawnPowerUp,
+                    powerUpType: powerUpType,
+                    powerUpCollected: false
                 });
                 pipeTimer = 0;
             }
+
+            let birdRight = bird.x + bird.w;
+            let birdBottom = bird.y + bird.h;
 
             for (let i = 0; i < this.position.length; i++) {
                 let p = this.position[i];
@@ -840,6 +810,27 @@
                     }
                 }
 
+                // Power-up Toplama Kontrolü (Tam ortada ve toplanınca anında kaybolur)
+                if (p.hasPowerUp && !p.powerUpCollected) {
+                    let puX = p.x + (this.w / 2) - 18;
+                    let puY = p.y + (this.gap / 2) - 18;
+                    if (p.hasSakayik && !p.sakayikCollected) puY -= 35;
+
+                    if (
+                        bird.x < puX + 36 &&
+                        birdRight > puX &&
+                        bird.y < puY + 36 &&
+                        birdBottom > puY
+                    ) {
+                        p.powerUpCollected = true; // Toplandığı an bir daha görünmez (kaybolur)
+                        if (p.powerUpType === '2X') {
+                            doubleScoreTimer = 20; 
+                        } else if (p.powerUpType === 'HEART') {
+                            if (playerLives < 3) playerLives++; 
+                        }
+                    }
+                }
+
                 if (p.x + this.w < bird.x && !p.passed) {
                     let pointsToAdd = doubleScoreTimer > 0 ? 2 : 1;
                     score += pointsToAdd;
@@ -856,9 +847,7 @@
 
         reset() {
             this.position = [];
-            floatingPowerUps = [];
             pipeTimer = 0;
-            freePowerUpTimer = 0;
             nextSakayikCount = Math.floor(Math.random() * 4) + 3;
             doubleScoreTimer = 0;
             playerLives = 1; 
