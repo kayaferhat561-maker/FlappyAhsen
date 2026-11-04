@@ -38,7 +38,7 @@
             border-radius: 14px;
         }
 
-        /* Sağ Taraf Taşıyıcısı (Sadece Skor Tablosu + Mağaza Butonu) */
+        /* Sağ Taraf Taşıyıcısı (Skor Tablosu + Mağaza Butonu) */
         #sidebar-container {
             display: flex;
             flex-direction: column;
@@ -233,7 +233,7 @@
     <div id="nick-screen" class="screen">
         <h2>HESAP GİRİŞİ</h2>
         <div id="error-msg"></div>
-        <input type="text" id="nick-input" class="input-field" placeholder="Nickini Yaz..." maxlength="12" autocomplete="off">
+        <input type="text" id="nick-input" class="input-field" placeholder="Kullanıcı Adını Giriniz" maxlength="12" autocomplete="off">
         <input type="password" id="pass-input" class="input-field" placeholder="Şifren..." maxlength="16" autocomplete="off">
         <button id="login-btn" class="menu-btn">Giriş / Kayıt Ol</button>
     </div>
@@ -309,7 +309,6 @@
         { limit: 999, icon: "👑" }
     ];
 
-    // Canvas Üzerine Çizilecek İlerleme Barı Değişkenleri
     let currentRankIcon = "🧱";
     let nextRankIcon = "🥉";
     let progressPercent = 0;
@@ -731,11 +730,9 @@
 
     const ground = {
         draw() {
-            // Zemin Arka Planı
             ctx.fillStyle = "#0c0517";
             ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
 
-            // Zemin Üst Çizgisi ve İlerleme Barı Kutusu
             ctx.fillStyle = "#8e44ad";
             ctx.shadowColor = "#9b59b6";
             ctx.shadowBlur = 10;
@@ -743,20 +740,17 @@
             ctx.shadowBlur = 0;
 
             if (gameState === "PLAY" || gameState === "START" || gameState === "GAMEOVER") {
-                // İlerleme Barı Çizimi (Zeminin Üzerinde)
                 let barX = 30;
                 let barY = canvas.height - 35;
                 let barW = canvas.width - 60;
                 let barH = 16;
 
-                // Bar Arka Planı
                 ctx.fillStyle = "#160826";
                 ctx.fillRect(barX, barY, barW, barH);
                 ctx.strokeStyle = "rgba(186, 85, 211, 0.5)";
                 ctx.lineWidth = 1.5;
                 ctx.strokeRect(barX, barY, barW, barH);
 
-                // Yeşil Dolgu Alanı
                 let fillW = (barW - 4) * (progressPercent / 100);
                 let grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
                 grad.addColorStop(0, '#2ecc71');
@@ -764,7 +758,6 @@
                 ctx.fillStyle = grad;
                 ctx.fillRect(barX + 2, barY + 2, fillW, barH - 4);
 
-                // Sol ve Sağ Rank İkonları
                 ctx.font = "14px 'Segoe UI', Arial";
                 ctx.textAlign = "right";
                 ctx.fillText(currentRankIcon, barX - 8, barY + 13);
