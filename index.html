@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Secure Firebase Ranked</title>
+    <title>Flappy Bird - Global Secure Accounts</title>
     <style>
         * {
             box-sizing: border-box;
@@ -347,7 +347,7 @@
         nextRankIcon = getRankSymbol(nextTierMin);
     }
 
-    // --- GÜVENLİ VE HATASIZ FIREBASE HESAP DOĞRULAMA ---
+    // --- KESİN VE ORTAK NICK KONTROLÜ (TÜM BİLGİSAYARLAR İÇİN TEK MERKEZ) ---
     document.getElementById("login-btn").addEventListener("click", async () => {
         const nickInput = document.getElementById("nick-input").value.trim();
         const passInput = document.getElementById("pass-input").value.trim();
@@ -358,15 +358,16 @@
             return;
         }
 
-        // Firebase anahtarlarında sorun olabilecek geçersiz karakterleri temizle
-        const safeKey = nickInput.replace(/[.#$[\]]/g, "_");
+        // Türkçe ve boşluk içeren karakterleri Firebase anahtar yapısına uygun hale getir
+        const safeKey = nickInput.toLowerCase().replace(/[^a-z0-9_]/g, "_");
 
         try {
-            errBox.innerText = "Bağlanıyor...";
+            errBox.innerText = "Kontrol ediliyor...";
             const dbRef = ref(db);
             const snapshot = await get(child(dbRef, `users/${safeKey}`));
 
             if (snapshot.exists()) {
+                // Bu nick başka bir cihazda veya daha önce kesinlikle alınmış! Şifreyi doğrula.
                 const userData = snapshot.val();
                 if (userData.pass === passInput) {
                     playerNick = nickInput;
@@ -379,7 +380,7 @@
                     errBox.innerText = "Bu kullanıcı adı başkasına ait! Şifre yanlış.";
                 }
             } else {
-                // Yeni hesap oluştur ve Firebase'e kaydet
+                // Bu nick veritabanında hiç yok. İlk defa alınıyor ve sisteme kilitleniyor.
                 const newUser = {
                     nick: nickInput,
                     pass: passInput,
@@ -397,36 +398,14 @@
                 openMenu();
             }
         } catch (e) {
-            console.log("Firebase hata detayları:", e);
-            // Eğer bağlantı kısıtlamasına takılırsa otomatik olarak yerel yedekli sisteme geçiş yapar ve oyunun kesilmesini önler
-            let localAccounts = JSON.parse(localStorage.getItem("flappy_fallback_accounts") || "{}");
-            if (localAccounts[nickInput]) {
-                if (localAccounts[nickInput].pass === passInput) {
-                    playerNick = nickInput;
-                    totalCoins = localAccounts[nickInput].coins;
-                    unlockedSkins = localAccounts[nickInput].unlocked;
-                    currentSkin = localAccounts[nickInput].skin;
-                    errBox.innerText = "";
-                    openMenu();
-                } else {
-                    errBox.innerText = "Şifre yanlış!";
-                }
-            } else {
-                localAccounts[nickInput] = { pass: passInput, coins: 0, unlocked: ["default"], skin: "default" };
-                localStorage.setItem("flappy_fallback_accounts", JSON.stringify(localAccounts));
-                playerNick = nickInput;
-                totalCoins = 0;
-                unlockedSkins = ["default"];
-                currentSkin = "default";
-                errBox.innerText = "";
-                openMenu();
-            }
+            console.log("Bağlantı hatası:", e);
+            errBox.innerText = "Veritabanına bağlanılamadı. İnternet bağlantını kontrol et.";
         }
     });
 
     async function saveAccountData() {
         if (!playerNick) return;
-        const safeKey = playerNick.replace(/[.#$[\]]/g, "_");
+        const safeKey = playerNick.toLowerCase().replace(/[^a-z0-9_]/g, "_");
         try {
             const passInput = document.getElementById("pass-input").value.trim();
             await set(ref(db, `users/${safeKey}`), {
@@ -437,13 +416,7 @@
                 skin: currentSkin
             });
         } catch (e) {
-            let localAccounts = JSON.parse(localStorage.getItem("flappy_fallback_accounts") || "{}");
-            if (localAccounts[playerNick]) {
-                localAccounts[playerNick].coins = totalCoins;
-                localAccounts[playerNick].unlocked = unlockedSkins;
-                localAccounts[playerNick].skin = currentSkin;
-                localStorage.setItem("flappy_fallback_accounts", JSON.stringify(localAccounts));
-            }
+            console.log("Veri kaydetme hatası:", e);
         }
     }
 
