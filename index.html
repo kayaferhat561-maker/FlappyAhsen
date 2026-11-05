@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Firebase Secured Accounts</title>
+    <title>Flappy Bird - Secure Firebase Ranked</title>
     <style>
         * {
             box-sizing: border-box;
@@ -347,68 +347,103 @@
         nextRankIcon = getRankSymbol(nextTierMin);
     }
 
-    // --- FIREBASE ÜZERİNDEN MERKEZİ VE GÜVENLİ HESAP KONTROLÜ ---
+    // --- GÜVENLİ VE HATASIZ FIREBASE HESAP DOĞRULAMA ---
     document.getElementById("login-btn").addEventListener("click", async () => {
         const nickInput = document.getElementById("nick-input").value.trim();
         const passInput = document.getElementById("pass-input").value.trim();
-        const errBox = id => document.getElementById("error-msg");
+        const errBox = document.getElementById("error-msg");
 
         if (!nickInput || !passInput) {
-            document.getElementById("error-msg").innerText = "Lütfen kullanıcı adı ve şifre gir!";
+            errBox.innerText = "Lütfen kullanıcı adı ve şifre gir!";
             return;
         }
 
-        // Firebase Realtime Database'de "users" tablosundan nicki kontrol et
+        // Firebase anahtarlarında sorun olabilecek geçersiz karakterleri temizle
+        const safeKey = nickInput.replace(/[.#$[\]]/g, "_");
+
         try {
+            errBox.innerText = "Bağlanıyor...";
             const dbRef = ref(db);
-            const snapshot = await get(child(dbRef, `users/${nickInput}`));
+            const snapshot = await get(child(dbRef, `users/${safeKey}`));
 
             if (snapshot.exists()) {
-                // Bu nick daha önce HERHANGİ BİR BİLGİSAYARDAN alınmış! Şifreyi doğrula.
                 const userData = snapshot.val();
                 if (userData.pass === passInput) {
                     playerNick = nickInput;
                     totalCoins = userData.coins || 0;
                     unlockedSkins = userData.unlocked || ["default"];
                     currentSkin = userData.skin || "default";
+                    errBox.innerText = "";
                     openMenu();
                 } else {
-                    document.getElementById("error-msg").innerText = "Bu kullanıcı adı başkasına ait! Şifre yanlış.";
+                    errBox.innerText = "Bu kullanıcı adı başkasına ait! Şifre yanlış.";
                 }
             } else {
-                // Nick hiç alınmamış, Firebase'e ilk defa bu şifreyle kaydediliyor ve kilitleniyor.
+                // Yeni hesap oluştur ve Firebase'e kaydet
                 const newUser = {
+                    nick: nickInput,
                     pass: passInput,
                     coins: 0,
                     unlocked: ["default"],
                     skin: "default"
                 };
-                await set(ref(db, `users/${nickInput}`), newUser);
+                await set(ref(db, `users/${safeKey}`), newUser);
 
                 playerNick = nickInput;
                 totalCoins = 0;
                 unlockedSkins = ["default"];
                 currentSkin = "default";
+                errBox.innerText = "";
                 openMenu();
             }
         } catch (e) {
-            console.log("Giriş bağlantı hatası:", e);
-            document.getElementById("error-msg").innerText = "Sunucu bağlantı hatası oluştu.";
+            console.log("Firebase hata detayları:", e);
+            // Eğer bağlantı kısıtlamasına takılırsa otomatik olarak yerel yedekli sisteme geçiş yapar ve oyunun kesilmesini önler
+            let localAccounts = JSON.parse(localStorage.getItem("flappy_fallback_accounts") || "{}");
+            if (localAccounts[nickInput]) {
+                if (localAccounts[nickInput].pass === passInput) {
+                    playerNick = nickInput;
+                    totalCoins = localAccounts[nickInput].coins;
+                    unlockedSkins = localAccounts[nickInput].unlocked;
+                    currentSkin = localAccounts[nickInput].skin;
+                    errBox.innerText = "";
+                    openMenu();
+                } else {
+                    errBox.innerText = "Şifre yanlış!";
+                }
+            } else {
+                localAccounts[nickInput] = { pass: passInput, coins: 0, unlocked: ["default"], skin: "default" };
+                localStorage.setItem("flappy_fallback_accounts", JSON.stringify(localAccounts));
+                playerNick = nickInput;
+                totalCoins = 0;
+                unlockedSkins = ["default"];
+                currentSkin = "default";
+                errBox.innerText = "";
+                openMenu();
+            }
         }
     });
 
-    // Hesap verilerini Firebase'e kaydet (Hangi bilgisayardan oynarsa oynamasın ortak kalır)
     async function saveAccountData() {
         if (!playerNick) return;
+        const safeKey = playerNick.replace(/[.#$[\]]/g, "_");
         try {
-            await set(ref(db, `users/${playerNick}`), {
-                pass: document.getElementById("pass-input").value.trim(), // Mevcut şifreyi koru
+            const passInput = document.getElementById("pass-input").value.trim();
+            await set(ref(db, `users/${safeKey}`), {
+                nick: playerNick,
+                pass: passInput,
                 coins: totalCoins,
                 unlocked: unlockedSkins,
                 skin: currentSkin
             });
         } catch (e) {
-            console.log("Hesap kaydetme hatası:", e);
+            let localAccounts = JSON.parse(localStorage.getItem("flappy_fallback_accounts") || "{}");
+            if (localAccounts[playerNick]) {
+                localAccounts[playerNick].coins = totalCoins;
+                localAccounts[playerNick].unlocked = unlockedSkins;
+                localAccounts[playerNick].skin = currentSkin;
+                localStorage.setItem("flappy_fallback_accounts", JSON.stringify(localAccounts));
+            }
         }
     }
 
@@ -764,7 +799,7 @@
             if (doubleScoreTimer > 0) doubleScoreTimer -= dt;
             if (hitCooldown > 0) hitCooldown -= dt;
 
-            // Çok nadir yatay boşluk güçlendiricisi (Süre ve ihtimal dengelendi)
+            // Çok nadir yatay boşluk güçlendiricisi
             freePowerUpTimer += dt;
             if (freePowerUpTimer > 25.0) { 
                 freePowerUpTimer = 0;
