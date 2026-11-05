@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Secure Accounts & Ranked</title>
+    <title>Flappy Bird - Firebase Secured Accounts</title>
     <style>
         * {
             box-sizing: border-box;
@@ -280,7 +280,7 @@
 <!-- Firebase Entegrasyonu ve Oyun Mantığı -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, push, set, get, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, push, set, get, query, orderByChild, limitToLast, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyDdAU6Ie4VQbrUF4U4lmKGriYq6B_aNOgM",
@@ -347,49 +347,68 @@
         nextRankIcon = getRankSymbol(nextTierMin);
     }
 
-    // --- GÜVENLİ GİRİŞ / KAYIT KONTROLÜ ---
-    document.getElementById("login-btn").addEventListener("click", () => {
-        const nick = document.getElementById("nick-input").value.trim();
-        const pass = document.getElementById("pass-input").value.trim();
-        const errBox = document.getElementById("error-msg");
+    // --- FIREBASE ÜZERİNDEN MERKEZİ VE GÜVENLİ HESAP KONTROLÜ ---
+    document.getElementById("login-btn").addEventListener("click", async () => {
+        const nickInput = document.getElementById("nick-input").value.trim();
+        const passInput = document.getElementById("pass-input").value.trim();
+        const errBox = id => document.getElementById("error-msg");
 
-        if (!nick || !pass) {
-            errBox.innerText = "Lütfen kullanıcı adı ve şifre gir!";
+        if (!nickInput || !passInput) {
+            document.getElementById("error-msg").innerText = "Lütfen kullanıcı adı ve şifre gir!";
             return;
         }
 
-        let savedAccounts = JSON.parse(localStorage.getItem("flappy_accounts") || "{}");
+        // Firebase Realtime Database'de "users" tablosundan nicki kontrol et
+        try {
+            const dbRef = ref(db);
+            const snapshot = await get(child(dbRef, `users/${nickInput}`));
 
-        if (savedAccounts[nick]) {
-            // Nick zaten kayıtlıysa, şifrenin doğru olması zorunludur! Başkası ele geçiremez.
-            if (savedAccounts[nick].pass === pass) {
-                playerNick = nick;
-                totalCoins = savedAccounts[nick].coins;
-                unlockedSkins = savedAccounts[nick].unlocked;
-                currentSkin = savedAccounts[nick].skin;
-                openMenu();
+            if (snapshot.exists()) {
+                // Bu nick daha önce HERHANGİ BİR BİLGİSAYARDAN alınmış! Şifreyi doğrula.
+                const userData = snapshot.val();
+                if (userData.pass === passInput) {
+                    playerNick = nickInput;
+                    totalCoins = userData.coins || 0;
+                    unlockedSkins = userData.unlocked || ["default"];
+                    currentSkin = userData.skin || "default";
+                    openMenu();
+                } else {
+                    document.getElementById("error-msg").innerText = "Bu kullanıcı adı başkasına ait! Şifre yanlış.";
+                }
             } else {
-                errBox.innerText = "Bu kullanıcı adı başkasına ait! Şifre yanlış.";
+                // Nick hiç alınmamış, Firebase'e ilk defa bu şifreyle kaydediliyor ve kilitleniyor.
+                const newUser = {
+                    pass: passInput,
+                    coins: 0,
+                    unlocked: ["default"],
+                    skin: "default"
+                };
+                await set(ref(db, `users/${nickInput}`), newUser);
+
+                playerNick = nickInput;
+                totalCoins = 0;
+                unlockedSkins = ["default"];
+                currentSkin = "default";
+                openMenu();
             }
-        } else {
-            // Nick daha önce hiç alınmamışsa yeni hesap oluşturulur ve sabitlenir.
-            savedAccounts[nick] = { pass: pass, coins: 0, unlocked: ["default"], skin: "default" };
-            localStorage.setItem("flappy_accounts", JSON.stringify(savedAccounts));
-            playerNick = nick;
-            totalCoins = 0;
-            unlockedSkins = ["default"];
-            currentSkin = "default";
-            openMenu();
+        } catch (e) {
+            console.log("Giriş bağlantı hatası:", e);
+            document.getElementById("error-msg").innerText = "Sunucu bağlantı hatası oluştu.";
         }
     });
 
-    function saveAccountData() {
-        let savedAccounts = JSON.parse(localStorage.getItem("flappy_accounts") || "{}");
-        if (savedAccounts[playerNick]) {
-            savedAccounts[playerNick].coins = totalCoins;
-            savedAccounts[playerNick].unlocked = unlockedSkins;
-            savedAccounts[playerNick].skin = currentSkin;
-            localStorage.setItem("flappy_accounts", JSON.stringify(savedAccounts));
+    // Hesap verilerini Firebase'e kaydet (Hangi bilgisayardan oynarsa oynamasın ortak kalır)
+    async function saveAccountData() {
+        if (!playerNick) return;
+        try {
+            await set(ref(db, `users/${playerNick}`), {
+                pass: document.getElementById("pass-input").value.trim(), // Mevcut şifreyi koru
+                coins: totalCoins,
+                unlocked: unlockedSkins,
+                skin: currentSkin
+            });
+        } catch (e) {
+            console.log("Hesap kaydetme hatası:", e);
         }
     }
 
@@ -567,6 +586,7 @@
     let nextSakayikCount = Math.floor(Math.random() * 4) + 3;
     let freePowerUpTimer = 0; 
 
+    // Yatay boşluklarda çok nadir süzülen güçlendiriciler
     let floatingPowerUps = [];
 
     const bird = {
@@ -744,10 +764,11 @@
             if (doubleScoreTimer > 0) doubleScoreTimer -= dt;
             if (hitCooldown > 0) hitCooldown -= dt;
 
+            // Çok nadir yatay boşluk güçlendiricisi (Süre ve ihtimal dengelendi)
             freePowerUpTimer += dt;
-            if (freePowerUpTimer > 20.0) { 
+            if (freePowerUpTimer > 25.0) { 
                 freePowerUpTimer = 0;
-                if (Math.random() < 0.35) {
+                if (Math.random() < 0.30) {
                     let puType = Math.random() < 0.5 ? '2X' : 'HEART';
                     floatingPowerUps.push({
                         x: canvas.width,
