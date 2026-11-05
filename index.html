@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird - Rare Horizontal Space Power-ups</title>
+    <title>Flappy Bird - Secure Accounts & Ranked</title>
     <style>
         * {
             box-sizing: border-box;
@@ -244,7 +244,7 @@
         <div id="error-msg"></div>
         <input type="text" id="nick-input" class="input-field" placeholder="Kullanıcı Adını Giriniz" maxlength="12" autocomplete="off">
         <input type="password" id="pass-input" class="input-field" placeholder="Şifren..." maxlength="16" autocomplete="off">
-        <button id="login-btn" class="menu-btn">Giriş / Kayıt Ol</button>
+        <button id="login-btn" class="menu-btn">Giriş Yap / Kayıt Ol</button>
     </div>
 
     <!-- Oyun İçi Ana Menü -->
@@ -304,8 +304,8 @@
     let returningFromShop = false;
 
     // Oyun İçi Durumlar ve Can/Güçlendirmeler
-    let playerLives = 1;         // Başlangıçta 1 Can
-    let doubleScoreTimer = 0;    // ⚡ 2X Çarpanı (20 saniye)
+    let playerLives = 1;         
+    let doubleScoreTimer = 0;    
     let hitCooldown = 0;         
 
     const skins = [
@@ -347,6 +347,7 @@
         nextRankIcon = getRankSymbol(nextTierMin);
     }
 
+    // --- GÜVENLİ GİRİŞ / KAYIT KONTROLÜ ---
     document.getElementById("login-btn").addEventListener("click", () => {
         const nick = document.getElementById("nick-input").value.trim();
         const pass = document.getElementById("pass-input").value.trim();
@@ -360,6 +361,7 @@
         let savedAccounts = JSON.parse(localStorage.getItem("flappy_accounts") || "{}");
 
         if (savedAccounts[nick]) {
+            // Nick zaten kayıtlıysa, şifrenin doğru olması zorunludur! Başkası ele geçiremez.
             if (savedAccounts[nick].pass === pass) {
                 playerNick = nick;
                 totalCoins = savedAccounts[nick].coins;
@@ -367,9 +369,10 @@
                 currentSkin = savedAccounts[nick].skin;
                 openMenu();
             } else {
-                errBox.innerText = "Şifre yanlış!";
+                errBox.innerText = "Bu kullanıcı adı başkasına ait! Şifre yanlış.";
             }
         } else {
+            // Nick daha önce hiç alınmamışsa yeni hesap oluşturulur ve sabitlenir.
             savedAccounts[nick] = { pass: pass, coins: 0, unlocked: ["default"], skin: "default" };
             localStorage.setItem("flappy_accounts", JSON.stringify(savedAccounts));
             playerNick = nick;
@@ -562,9 +565,8 @@
     let elapsedTime = 0;
     let pipeTimer = 0;
     let nextSakayikCount = Math.floor(Math.random() * 4) + 3;
-    let freePowerUpTimer = 0; // Borulardan bağımsız, yatay boşluklarda çok nadir beliren güçlendiriciler için sayaç
+    let freePowerUpTimer = 0; 
 
-    // Yatay boşluklarda süzülen nadir güçlendiriciler listesi
     let floatingPowerUps = [];
 
     const bird = {
@@ -692,7 +694,7 @@
 
                 ctx.shadowBlur = 0;
 
-                // Şakayık Çizimi (Boruların dikey ortasında)
+                // Şakayık Çizimi
                 if (p.hasSakayik && !p.sakayikCollected) {
                     let sakayikX = p.x + (this.w / 2) - 18;
                     let sakayikY = p.y + (this.gap / 2) - 18;
@@ -712,7 +714,7 @@
                 }
             }
 
-            // Boruların arasındaki yatay boşluklarda süzülen çok nadir güçlendiriciler (Sadece toplanmamışsa çizilir)
+            // Yatay boşluklardaki nadir güçlendiriciler
             for (let i = 0; i < floatingPowerUps.length; i++) {
                 let fpu = floatingPowerUps[i];
                 if (!fpu.collected) {
@@ -742,15 +744,14 @@
             if (doubleScoreTimer > 0) doubleScoreTimer -= dt;
             if (hitCooldown > 0) hitCooldown -= dt;
 
-            // Yatay Boşluklarda Çok Nadir Güçlendirici Üretme Mantığı (Çok uzun sürede bir ve rastgele yükseklikte)
             freePowerUpTimer += dt;
-            if (freePowerUpTimer > 20.0) { // Yaklaşık her 20 saniyede bir çok nadir şans denemesi
+            if (freePowerUpTimer > 20.0) { 
                 freePowerUpTimer = 0;
                 if (Math.random() < 0.35) {
                     let puType = Math.random() < 0.5 ? '2X' : 'HEART';
                     floatingPowerUps.push({
                         x: canvas.width,
-                        y: Math.floor(Math.random() * (canvas.height - 240)) + 70, // Boru aralarındaki yatay boşluk alanları
+                        y: Math.floor(Math.random() * (canvas.height - 240)) + 70, 
                         type: puType,
                         collected: false
                     });
@@ -771,7 +772,7 @@
                         bird.y < fpu.y + 32 &&
                         birdBottom > fpu.y
                     ) {
-                        fpu.collected = true; // Toplandığı an kaybolur
+                        fpu.collected = true; 
                         if (fpu.type === '2X') {
                             doubleScoreTimer = 20; 
                         } else if (fpu.type === 'HEART') {
@@ -815,14 +816,12 @@
                 let pipeRight = p.x + this.w;
                 let pipeBottomGap = p.y + this.gap;
 
-                // Boru Çarpışma Kontrolü
                 if (birdRight > p.x && bird.x < pipeRight) {
                     if (bird.y < p.y || birdBottom > pipeBottomGap) {
                         handleDamage();
                     }
                 }
 
-                // Şakayık Toplama Kontrolü
                 if (p.hasSakayik && !p.sakayikCollected) {
                     let sakayikX = p.x + (this.w / 2) - 18;
                     let sakayikY = p.y + (this.gap / 2) - 18;
@@ -957,7 +956,6 @@
             ctx.fillText(score, canvas.width / 2, 70);
             ctx.shadowBlur = 0;
 
-            // Canlar (Kalpler ❤️)
             let heartsText = "";
             for (let i = 0; i < playerLives; i++) heartsText += "❤️ ";
             ctx.font = "18px 'Segoe UI', Arial";
@@ -965,7 +963,6 @@
             ctx.fillStyle = "#ff4757";
             ctx.fillText(heartsText, 20, 35);
 
-            // Aktif Power-up Süreleri
             let activePowerUpsText = [];
             if (doubleScoreTimer > 0) activePowerUpsText.push(`⚡ 2X Puan: ${Math.ceil(doubleScoreTimer)}s`);
 
